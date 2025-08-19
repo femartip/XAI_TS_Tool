@@ -14,7 +14,7 @@ const Header = () => (
 );
 
 export default () => {
-    const [datasetName, setDatasetName] = useState(null);
+    const [datasetName, setDatasetName] = useState("Chinatown");
     const [instanceNumber, setInstanceNumber] = useState(0);
     const [simpMethod, setSimpMethod] = useState("RDP");
     const [alphaValue, setAlphaValue] = useState(0)
