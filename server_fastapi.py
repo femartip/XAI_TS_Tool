@@ -105,6 +105,28 @@ async def get_ts(dataset_name: str = Query(None, description='Name of domain'), 
     time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", index=index).flatten().tolist()
     return time_series
 
+@app.get("/datasets")
+async def get_datasets():
+    data_path = Path("data")
+    models_path = Path("models")
+
+    if not data_path.is_dir() or not models_path.is_dir():
+        return []
+
+    data_dirs = {d.name for d in data_path.iterdir() if d.is_dir()}
+    models_dirs = {d.name for d in models_path.iterdir() if d.is_dir()}
+
+    common_datasets = sorted(list(data_dirs.intersection(models_dirs)))
+
+    valid_datasets = []
+    for dataset in common_datasets:
+        dataset_data_path = data_path / dataset
+        dataset_model_path = models_path / dataset
+        if any(dataset_data_path.glob('*.npy')) and (any(dataset_model_path.glob('*.pkl')) or any(dataset_model_path.glob('*.pth'))):
+            valid_datasets.append(dataset)
+
+    return valid_datasets
+
 @ app.get("/")
 async def welcome():
     return "Welcom home", 200
@@ -211,7 +233,7 @@ async def get_loyalty_alphas_csv(task_id: str, dataset: str, dataset_type: str, 
         #df, time_dict = score_different_alphas_mp(dataset, datset_type=dataset_type, model_path=model_path)
         df = await score_different_alphas(task_id, dataset, datset_type=dataset_type, model_path=model_path)
         df.to_csv(f"results/{dataset}/{model_type}_alpha_complexity_loyalty.csv", index=False)
-        active_tasks[task_id].update({"status": "completed","progress": 100,"message": "Processing completed successfully! You should be able to chose them in the home page."})
+        active_tasks[task_id].update({"status": "completed","progress": 100,"message": "Processing completed successfully! You should be able to choose your Dataset in the home page."})
     except Exception as e:
         active_tasks[task_id].update({"status": "error","progress": 0,"message": f"Processing failed: {str(e)}"})
 
@@ -291,20 +313,20 @@ async def upload_files( model_file: UploadFile = File(...), dataset_file: Upload
     
     model_type = model_file.filename.split(".")[0]
     model_file_format = model_file.filename.split(".")[1]
-    model_file_name = dataset_name + "_TEST." + model_file_format
+    model_file_name = dataset_name + "_TEST_normalized." + model_file_format
     model_file_path = model_path.joinpath(model_file_name)
     model_file_path_str = str(model_file_path)
     with open(model_file_path, "wb") as buffer:
             shutil.copyfileobj(model_file.file, buffer)
     
     dataset_file_format = dataset_file.filename.split(".")[1]
-    dataset_file_name = dataset_name + "_TEST." + dataset_file_format
+    dataset_file_name = dataset_name + "_TEST_normalized." + dataset_file_format
     dataset_file_path = data_path.joinpath(dataset_file_name)
     with open(dataset_file_path, "wb") as buffer:
             shutil.copyfileobj(dataset_file.file, buffer)
 
     print("Starting background task")
-    asyncio.create_task(get_loyalty_alphas_csv(task_id, dataset_name, "TEST", model_file_path_str, model_type))
+    asyncio.create_task(get_loyalty_alphas_csv(task_id, dataset_name, "TEST_normalized", model_file_path_str, model_type))
     #asyncio.create_task(test_progress_bar(task_id, dataset_name, "TEST", model_file_path_str, model_type))
     
     return {"message": "Upload started", "task_id": task_id}

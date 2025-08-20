@@ -1,24 +1,32 @@
-import React, { useEffect, useState } from "react";
+import React, { useState, useEffect } from "react";
 import "./styles.css";
+import "./HomePage.css";
 import { TrainSetting } from "./TrainSetting";
-import { ModelUploadComponent } from "./ModelManager"
-import { DatasetUploadComponent } from "./DatasetManager"
 import ImportPage from "./ImportPage";
-
-const Header = () => (
-    <div className="header">
-        <h3>The Prototype (a typical example) is now Interactive.</h3>
-        <h3>Click and drag on the black dots to change the Interactive time series.</h3>
-        <h3>When you are done, CLOSE this window. </h3>
-    </div>
-);
+import axios from 'axios';
 
 export default () => {
-    const [datasetName, setDatasetName] = useState("Chinatown");
+    const [datasets, setDatasets] = useState([]);
+    const [datasetName, setDatasetName] = useState("");
     const [instanceNumber, setInstanceNumber] = useState(0);
     const [simpMethod, setSimpMethod] = useState("RDP");
-    const [alphaValue, setAlphaValue] = useState(0)
+    const [alphaValue, setAlphaValue] = useState(0);
     const [currentPage, setCurrentPage] = useState('home');
+
+    useEffect(() => {
+        const fetchDatasets = async () => {
+            try {
+                const response = await axios.get('http://localhost:8000/datasets');
+                setDatasets(response.data);
+                if (response.data.length > 0) {
+                    setDatasetName(response.data[0]);
+                }
+            } catch (error) {
+                console.error("Error fetching datasets:", error);
+            }
+        };
+        fetchDatasets();
+    }, []);
 
     const setDatasetNameFunc = (name) => {
         setDatasetName(name);
@@ -38,57 +46,59 @@ export default () => {
     return (
         <div className="App">
             {currentPage === 'home' ? (
-                <>
-                    {/* Add navigation button */}
-                    <div style={{ padding: '10px' }}>
-                        <button onClick={() => setCurrentPage('import')}>
-                            Go to Import Page
-                        </button>
-                    </div>
+                <div className="home-page">
+                    <h1>Interactive XAI Tool</h1>
+                    <button className="button-nav" onClick={() => setCurrentPage('import')}>
+                        Go to Import Page
+                    </button>
 
-                    <div className="float-container">
-                        <div className="float-right">
-                            <h3> Select Dataset</h3>
-                            <select name="cars" id="cars" defaultValue={"Chinatown"} onInputCapture={(event) => { setDatasetNameFunc(event.target.value) }}>
-                                <option value="Chinatown" >Chinatown</option>
-                                <option value="ItalyPowerDemand">ItalyPowerDemand</option>
-                                <option value="ECG200">ECG200</option>
+                    <div className="control-grid">
+                        <div className="control-card">
+                            <h3>Dataset</h3>
+                            <select value={datasetName} onChange={(event) => setDatasetNameFunc(event.target.value)}>
+                                {datasets.map(ds => (
+                                    <option key={ds} value={ds}>{ds}</option>
+                                ))}
                             </select>
                         </div>
 
-                        <div className="float-right">
-                            <h3>Select instance number</h3>
-                            <input type="number" defaultValue={instanceNumber} onInput={(event) => {
-                                setInstanceNumberFunc(event.target.value)
-                            }} />
+                        <div className="control-card">
+                            <h3>Instance Number</h3>
+                            <input type="number" defaultValue={instanceNumber} onChange={(event) => setInstanceNumberFunc(event.target.value)} />
                         </div>
-                        <div className="float-right">
-                            <h3> Select Simplification method</h3>
-                            <select name="cars" id="cars" defaultValue={"RDP"} onInputCapture={(event) => { setSimplificationMethod(event.target.value) }}>
-                                <option value="RDP" >RDP</option>
+
+                        <div className="control-card control-card--method">
+                            <h3>Simplification Method</h3>
+                            <select defaultValue={"RDP"} onChange={(event) => setSimplificationMethod(event.target.value)}>
+                                <option value="RDP">RDP</option>
                                 <option value="VW">VW</option>
                                 <option value="OS">OS</option>
                                 <option value="Bottom-up">BU</option>
                                 <option value={"LSF"}>LSF</option>
                             </select>
                         </div>
-                        <div className="float-right">
-                            <h3>Select alpha value</h3>
-                            <input type="number" defaultValue={instanceNumber} onInput={(event) => {
-                                setAlphaValueFunc(event.target.value)
-                            }} />
+
+                        <div className="control-card">
+                            <h3>Alpha Value</h3>
+                            <input
+                                type="number"
+                                defaultValue={alphaValue}
+                                onChange={(event) => setAlphaValueFunc(event.target.value)}
+                                step="0.01"
+                                min="0"
+                                max="1"
+                            />
                         </div>
                     </div>
+
                     <div className="InteractiveTool">
-                        {(datasetName) ?
-                            <TrainSetting datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={alphaValue} /> :
-                            <div />}
+                        {datasetName &&
+                            <TrainSetting datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={alphaValue} />}
                     </div>
-                </>
+                </div>
             ) : (
-                /* Import Page with back button */
                 <div>
-                    <button onClick={() => setCurrentPage('home')} style={{ margin: '10px' }}>
+                    <button className="button-nav" onClick={() => setCurrentPage('home')} style={{ margin: '10px' }}>
                         Back to Home
                     </button>
                     <ImportPage />
@@ -96,7 +106,6 @@ export default () => {
             )}
         </div>
     );
-
 };
 
 

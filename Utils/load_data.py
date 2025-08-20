@@ -8,16 +8,17 @@ https://github.com/BrigtHaavardstun/kSimplification
 """
 
 
-def read_numpy(dataset_name: str) -> np.ndarray:
-    """
-    Parse the data from TSV file into a Dataframe, and transform it into a numpy array.
-    :param dataset_name:
-    :return:
-    """
-    folder = "./data/" + dataset_name.split("_")[0] + "/"
-    file_location = folder + dataset_name
-    array_2d = np.load(file_location)
 
+def read_numpy(dataset_name: str, file_name: str) -> np.ndarray:
+    """
+    Parse the data from a numpy file.
+    :param dataset_name: The name of the dataset directory.
+    :param file_name: The name of the .npy file.
+    :return: A numpy array with the data.
+    """
+    folder = f"./data/{dataset_name}/"
+    file_location = folder + file_name
+    array_2d = np.load(file_location)
     return array_2d
 
 
@@ -44,7 +45,8 @@ def zero_indexing_labels(current_labels: np.ndarray, dataset: str, dataset_type:
 
 
 def load_data_set_full(dataset_name: str, data_type: str = "TRAIN") -> np.ndarray:
-    array_2d = read_numpy(dataset_name + "_" + data_type + ".npy")
+    file_name = f"{dataset_name}_{data_type}.npy"
+    array_2d = read_numpy(dataset_name, file_name)
     return array_2d
 
 

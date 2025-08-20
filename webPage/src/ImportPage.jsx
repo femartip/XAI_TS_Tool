@@ -9,35 +9,36 @@ const ImportPage = () => {
     const [progress, setProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState('');
     const [taskId, setTaskId] = useState(null);
+    const [startTime, setStartTime] = useState(null);
+    const [timeRemaining, setTimeRemaining] = useState(null);
 
     useEffect(() => {
-        if (taskId) {
-            console.log("Connecting to", taskId)
+        if (taskId && isUploading) {
             const ws = new WebSocket(`ws://localhost:8000/ws/progress/${taskId}`);
-            console.log("Connected")
             ws.onmessage = (event) => {
-                console.log("Message", event.data)
                 const data = JSON.parse(event.data);
                 setProgress(data.progress);
                 setStatusMessage(data.message);
 
-                if (data.status === 'completed') {
+                if (startTime && data.progress > 0) {
+                    const elapsedTime = (new Date() - startTime) / 1000; // in seconds
+                    const totalTime = (elapsedTime / data.progress) * 100;
+                    const remaining = totalTime - elapsedTime;
+                    setTimeRemaining(remaining);
+                }
+
+                if (data.status === 'completed' || data.status === 'error') {
                     setIsUploading(false);
-                    console.log("Completed")
-                    ws.close();
-                } else if (data.status === 'error') {
-                    setIsUploading(false);
-                    console.log("Error")
+                    setTimeRemaining(null);
                     ws.close();
                 }
             };
 
             return () => {
-                console.log("Cleaning Websoket")
-                ws.close()
+                ws.close();
             };
         }
-    }, [taskId]);
+    }, [taskId, isUploading, startTime]);
 
     const handleFileSelect = (event, type) => {
         const file = event.target.files[0];
@@ -53,7 +54,8 @@ const ImportPage = () => {
             setIsUploading(true);
             setProgress(0);
             setStatusMessage('Starting upload...');
-            console.log("Starting upload...")
+            setStartTime(new Date());
+            setTimeRemaining(null);
 
             const formData = new FormData();
             formData.append('model_file', modelFile);
@@ -72,17 +74,22 @@ const ImportPage = () => {
                     setTaskId(result.task_id);
                 } else {
                     alert(result.detail || 'Upload failed');
-                    setStatusMessage("Error")
-                    console.log("Error")
+                    setStatusMessage("Error");
                     setIsUploading(false);
                 }
             } catch (error) {
                 alert('Upload failed');
-                setStatusMessage("Error")
-                console.log("Error")
+                setStatusMessage("Error");
                 setIsUploading(false);
             }
         }
+    };
+
+    const formatTime = (seconds) => {
+        if (seconds === null || seconds < 0) return '';
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes}m ${remainingSeconds}s remaining`;
     };
 
     return (
@@ -131,9 +138,12 @@ const ImportPage = () => {
                         <div
                             className="progress-fill"
                             style={{ width: `${progress}%` }}
-                        ></div>
+                        >
+                           <span className="progress-text">{`${Math.round(progress)}%`}</span>
+                        </div>
                     </div>
                     <p className="progress-message">{statusMessage}</p>
+                    <p className="time-remaining">{formatTime(timeRemaining)}</p>
                 </div>
             )}
             {!isUploading && statusMessage && (
