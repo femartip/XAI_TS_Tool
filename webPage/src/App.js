@@ -12,21 +12,43 @@ export default () => {
     const [simpMethod, setSimpMethod] = useState("RDP");
     const [alphaValue, setAlphaValue] = useState(0);
     const [currentPage, setCurrentPage] = useState('home');
+    const [sessionId, setSessionId] = useState(null);
+
+    const fetchDatasets = async () => {
+        if (!sessionId) return;
+        try {
+            const response = await axios.get(`http://localhost:8000/datasets?session_id=${sessionId}`);
+            setDatasets(response.data);
+            if (response.data.length > 0) {
+                setDatasetName(response.data[0]);
+            }
+        } catch (error) {
+            console.error("Error fetching datasets:", error);
+        }
+    };
 
     useEffect(() => {
-        const fetchDatasets = async () => {
+        const fetchSessionId = async () => {
             try {
-                const response = await axios.get('http://localhost:8000/datasets');
-                setDatasets(response.data);
-                if (response.data.length > 0) {
-                    setDatasetName(response.data[0]);
+                let storedSessionId = localStorage.getItem('sessionId');
+                if (storedSessionId) {
+                    setSessionId(storedSessionId);
+                } else {
+                    const response = await axios.get('http://localhost:8000/session');
+                    const newSessionId = response.data.session_id;
+                    localStorage.setItem('sessionId', newSessionId);
+                    setSessionId(newSessionId);
                 }
             } catch (error) {
-                console.error("Error fetching datasets:", error);
+                console.error("Error fetching session ID:", error);
             }
         };
-        fetchDatasets();
+        fetchSessionId();
     }, []);
+
+    useEffect(() => {
+        fetchDatasets();
+    }, [sessionId]);
 
     const setDatasetNameFunc = (name) => {
         setDatasetName(name);
@@ -93,7 +115,7 @@ export default () => {
 
                     <div className="InteractiveTool">
                         {datasetName &&
-                            <TrainSetting datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={alphaValue} />}
+                            <TrainSetting sessionId={sessionId} datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={alphaValue} />}
                     </div>
                 </div>
             ) : (
@@ -101,7 +123,7 @@ export default () => {
                     <button className="button-nav" onClick={() => setCurrentPage('home')} style={{ margin: '10px' }}>
                         Back to Home
                     </button>
-                    <ImportPage />
+                    <ImportPage sessionId={sessionId} onUploadComplete={fetchDatasets} />
                 </div>
             )}
         </div>

@@ -4,7 +4,7 @@ import axios from 'axios';
 import BasicExample from "./MyProgressBar";
 
 
-export const TrainSetting = ({ datasetName, instanceNumber, simpMethod, alphaValue }) => {
+export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMethod, alphaValue }) => {
 
     const addr = "localhost"
     const port = "8000"
@@ -24,10 +24,14 @@ export const TrainSetting = ({ datasetName, instanceNumber, simpMethod, alphaVal
         if (!timeSeries) {
             return;
         }
+        const global_datasets = ["Chinatown", "ECG200", "ItalyPowerDemand"];
+        const is_global = global_datasets.includes(dataSetName);
         axios.get(make_full_url('getClass'), {
             params: {
                 time_series: JSON.stringify(timeSeries),
-                dataset_name: dataSetName
+                dataset_name: dataSetName,
+                is_global: is_global,
+                session_id: sessionId
             }
         })
             .then((res) => {
@@ -59,11 +63,15 @@ export const TrainSetting = ({ datasetName, instanceNumber, simpMethod, alphaVal
         null // Replace with python call
     )
     const getOrgData = () => {
-        console.log(make_full_url('getTS'))
+        const global_datasets = ["Chinatown", "ECG200", "ItalyPowerDemand"];
+        const is_global = global_datasets.includes(datasetName);
+
         axios.get(make_full_url('getTS'), {
             params: {
                 dataset_name: datasetName,
-                index: instanceNumber,//73=0 171=1// Convert dataSet to a JSON string
+                index: instanceNumber,
+                is_global: is_global,
+                session_id: sessionId
             }
         })
             .then((res) => {
@@ -166,7 +174,7 @@ export const TrainSetting = ({ datasetName, instanceNumber, simpMethod, alphaVal
                 lineColorCurr={lineColorCurr} lineColorOrg={lineColorOrg} lineColorSimp={lineColorSimp}
             />
             {(button_show) ?
-            <button className={"button"} onClick={reset} >RESET TO PROTOTYPE</button> :
+            <button className={"button"} onClick={reset} >RESET TO PROTOTYPE</button> : 
             <div/>}
         </div>
     );

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './ImportPage.css';
 
-const ImportPage = () => {
+const ImportPage = ({ sessionId, onUploadComplete }) => {
     const [modelFile, setModelFile] = useState(null);
     const [datasetFile, setDatasetFile] = useState(null);
     const [datasetName, setDatasetName] = useState('');
@@ -31,6 +31,9 @@ const ImportPage = () => {
                     setIsUploading(false);
                     setTimeRemaining(null);
                     ws.close();
+                    if (data.status === 'completed') {
+                        onUploadComplete();
+                    }
                 }
             };
 
@@ -38,7 +41,7 @@ const ImportPage = () => {
                 ws.close();
             };
         }
-    }, [taskId, isUploading, startTime]);
+    }, [taskId, isUploading, startTime, onUploadComplete]);
 
     const handleFileSelect = (event, type) => {
         const file = event.target.files[0];
@@ -61,6 +64,7 @@ const ImportPage = () => {
             formData.append('model_file', modelFile);
             formData.append('dataset_file', datasetFile);
             formData.append('dataset_name', datasetName);
+            formData.append('session_id', sessionId);
 
             try {
                 const response = await fetch('http://localhost:8000/upload', {

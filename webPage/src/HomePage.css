@@ -1,0 +1,78 @@
+.home-page {
+    padding: 40px 20px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.3);
+    min-height: 100vh;
+    color: rgb(99, 84, 84);
+}
+
+.home-page h1 {
+    font-size: 2.5rem;
+    margin-bottom: 40px;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.control-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 30px;
+    max-width: 1000px;
+    margin: 0 auto 40px;
+}
+
+.control-card {
+    background: white;
+    padding: 20px;
+    border-radius: 15px;
+    color: #333;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+}
+
+.control-card h3 {
+    margin-bottom: 15px;
+    font-size: 1.2rem;
+}
+
+.control-card select,
+.control-card input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    font-size: 1rem;
+    box-sizing: border-box;
+}
+
+/* Keep title on one line */
+.control-card--method h3 {
+    white-space: nowrap;
+}
+
+/* When there is room for 4 columns, make only the 3rd column a bit wider */
+@media (min-width: 960px) {
+    .control-grid {
+        /* 4 explicit tracks; the 3rd (method) is slightly wider */
+        grid-template-columns:
+            minmax(200px, 1fr) minmax(200px, 1fr) minmax(240px, 1.2fr) minmax(200px, 1fr);
+    }
+}
+
+
+
+.button-nav {
+    background: #ffffff;
+    color: rgb(0, 0, 0);
+    border: none;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    padding: 10px 20px;
+    font-size: 1rem;
+    border-radius: 25px;
+    cursor: pointer;
+    transition: background 0.3s ease;
+    margin-bottom: 20px;
+}
+
+.button-nav:hover {
+    background: #f0f0f0;
+    transform: translateY(-2px);
+}

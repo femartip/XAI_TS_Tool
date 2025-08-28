@@ -14,6 +14,7 @@ import asyncio
 import json
 import pandas as pd
 import random
+from datetime import datetime, timedelta
 
 from simplifications import get_OS_simplification, get_RDP_simplification, get_bottom_up_simplification, get_VW_simplification, get_LSF_simplification
 from Utils.metrics import calculate_mean_loyalty, calculate_kappa_loyalty, calculate_complexity, score_simplicity, calculate_percentage_agreement
@@ -37,6 +38,42 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# --- Session Management ---
+SESSION_ROOT = Path("session_data")
+SESSION_ROOT.mkdir(exist_ok=True)
+
+async def cleanup_old_sessions():
+    while True:
+        for session_folder in SESSION_ROOT.iterdir():
+            if session_folder.is_dir():
+                folder_path = SESSION_ROOT / session_folder
+                creation_time = datetime.fromtimestamp(folder_path.stat().st_ctime)
+                if datetime.now() - creation_time > timedelta(hours=24):
+                    shutil.rmtree(folder_path)
+        await asyncio.sleep(3600)  # Check every hour
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_old_sessions())
+
+@app.get("/session")
+async def get_session():
+    """
+    Generates a new session ID and creates a directory for it.
+    """
+    session_id = str(uuid.uuid4())
+    session_path = SESSION_ROOT / session_id
+    session_path.mkdir(parents=True, exist_ok=True)
+
+    default_dataset = "Chinatown"
+    
+    return {"session_id": session_id, "default_dataset": default_dataset}
+
+def get_session_path(session_id: str) -> Path:
+    """
+    Returns the path for a given session_id.
+    """
+    return SESSION_ROOT / session_id
 
 def convert_time_series_str_list_float(time_series: str) -> np.ndarray[Any, np.dtype[np.float64]]:
     if time_series is None:
@@ -47,23 +84,37 @@ def convert_time_series_str_list_float(time_series: str) -> np.ndarray[Any, np.d
     time_series_array = np.array(time_series_array)
     return time_series_array
 
+def check_dataset_availability(dataset_name: str, base_path: Path):
+    data_path = base_path / "data" / dataset_name
+    models_path = base_path / "models" / dataset_name
+    return data_path.is_dir() and models_path.is_dir() and any(data_path.glob('*.npy')) and (any(models_path.glob('*.pkl')) or any(models_path.glob('*.pth')))
+
 
 # Security improvments. DO NOT MAKE A FILE BASED ON THE ENTERED NAME!!!
 # instead make a map between model name and some basic numbering system.
-@ app.post("/reciveDataset")
-async def reciveData(file: UploadFile):
-    with open(f"pythonServer/utils/csvData/{file.filename}", "wb") as f:
-        contents = await file.read()  # read the file
+@app.post("/reciveDataset")
+async def reciveData(file: UploadFile, session_id: str = Form(...), dataset_name: str = Form(...)):
+    session_path = get_session_path(session_id)
+    data_path = session_path / "data" / dataset_name
+    data_path.mkdir(parents=True, exist_ok=True)
+    
+    file_path = data_path / file.filename
+    with open(file_path, "wb") as f:
+        contents = await file.read()
         f.write(contents)
     return {"filename": file.filename}
 
 
-@ app.post("/reciveModel")
-async def reciveModel(file: UploadFile):
-    with open(f"pythonServer/KerasModels/models/{file.filename}", "wb") as f:
-        contents = await file.read()  # read the file
-        f.write(contents)
+@app.post("/reciveModel")
+async def reciveModel(file: UploadFile, session_id: str = Form(...), dataset_name: str = Form(...)):
+    session_path = get_session_path(session_id)
+    model_path = session_path / "models" / dataset_name
+    model_path.mkdir(parents=True, exist_ok=True)
 
+    file_path = model_path / file.filename
+    with open(file_path, "wb") as f:
+        contents = await file.read()
+        f.write(contents)
     return {"filename": file.filename}
 
 @ app.get('/simplification')
@@ -87,12 +138,18 @@ async def confidence(time_series: str = Query(None, description=''), dataset_nam
     return str(model_confidence)
 
 @ app.get('/getClass')
-async def get_class(time_series: str = Query(None, description=''), dataset_name: str = Query(None, description='')):
+async def get_class(time_series: str = Query(None, description=''), dataset_name: str = Query(None, description=''), session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
     if time_series == "[0,0]":
         return 0
+    
+    base_path = Path(".")
+    if not is_global:
+        base_path = get_session_path(session_id)
+
     time_series_array = convert_time_series_str_list_float(time_series)
     class_of_ts = _classify(dataset_name=dataset_name,
-                            time_series=time_series_array)
+                            time_series=time_series_array,
+                            base_path=base_path)
     print(class_of_ts, type(class_of_ts))
     print("Class:",class_of_ts)
     class_of_ts = str(class_of_ts)
@@ -100,32 +157,41 @@ async def get_class(time_series: str = Query(None, description=''), dataset_name
 
 
 @ app.get('/getTS')
-async def get_ts(dataset_name: str = Query(None, description='Name of domain'), index: int = Query(None, description='Index of entry in train data')):
-    dataset_name = dataset_name
-    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", index=index).flatten().tolist()
+async def get_ts(dataset_name: str = Query(None, description='Name of domain'), index: int = Query(None, description='Index of entry in train data'), session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
+    base_path = Path(".")
+    if not is_global:
+        base_path = get_session_path(session_id)
+    
+    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", index=index, base_path=base_path).flatten().tolist()
     return time_series
 
 @app.get("/datasets")
-async def get_datasets():
-    data_path = Path("data")
-    models_path = Path("models")
+async def get_datasets(session_id: str = Query(None, description='Session ID')):
+    session_datasets = []
+    if session_id:
+        session_path = get_session_path(session_id)
+        if session_path.is_dir():
+            data_path = session_path / "data"
+            if data_path.is_dir():
+                data_dirs = {d.name for d in data_path.iterdir() if d.is_dir()}
+                models_dirs = {d.name for d in (session_path / "models").iterdir() if d.is_dir()}
+                common_datasets = sorted(list(data_dirs.intersection(models_dirs)))
+                for dataset in common_datasets:
+                    if check_dataset_availability(dataset, session_path):
+                        session_datasets.append(dataset)
 
-    if not data_path.is_dir() or not models_path.is_dir():
-        return []
+    global_datasets_names = ["Chinatown", "ECG200", "ItalyPowerDemand"]
+    global_datasets = [d for d in global_datasets_names if check_dataset_availability(d, Path("."))]
+    
+    # Combine and remove duplicates, keeping order
+    all_datasets = global_datasets + [d for d in session_datasets if d not in global_datasets]
 
-    data_dirs = {d.name for d in data_path.iterdir() if d.is_dir()}
-    models_dirs = {d.name for d in models_path.iterdir() if d.is_dir()}
+    # Make sure Chinatown is the default
+    if "Chinatown" in all_datasets:
+        all_datasets.remove("Chinatown")
+        all_datasets.insert(0, "Chinatown")
 
-    common_datasets = sorted(list(data_dirs.intersection(models_dirs)))
-
-    valid_datasets = []
-    for dataset in common_datasets:
-        dataset_data_path = data_path / dataset
-        dataset_model_path = models_path / dataset
-        if any(dataset_data_path.glob('*.npy')) and (any(dataset_model_path.glob('*.pkl')) or any(dataset_model_path.glob('*.pth'))):
-            valid_datasets.append(dataset)
-
-    return valid_datasets
+    return all_datasets
 
 @ app.get("/")
 async def welcome():
@@ -137,15 +203,17 @@ Need to execute the upload in background
 """
 active_tasks: dict[str, dict] = {}
 
-async def score_different_alphas(task_id: str, dataset_name: str, datset_type: str, model_path: str) -> pd.DataFrame:
+async def score_different_alphas(task_id: str, session_id: str, dataset_name: str, datset_type: str, model_path: str, is_global: bool) -> pd.DataFrame:
     """
     Evaluate the impact of different alpha values on loyalty, kappa, and complexity.
     """
+    base_path = Path(".") if is_global else get_session_path(session_id)
+
     diff_alpha_values = np.arange(0,1,0.01)     #Bigger steps of alpha skew the results
     df = pd.DataFrame(columns=["Type","Alpha", "Percentage Agreement", "Kappa Loyalty", "Complexity", "Num Segments"])
-    all_time_series = load_dataset(dataset_name, data_type=datset_type)
+    all_time_series = load_dataset(dataset_name, data_type=datset_type, base_path=base_path)
     
-    labels = load_dataset_labels(dataset_name, data_type=datset_type)
+    labels = load_dataset_labels(dataset_name, data_type=datset_type, base_path=base_path)
     num_classes = len(set(labels))
     
     # Algorithms grow in time complexity with the number of time series. If there are too many, we will stratify the data to get 100 samples
@@ -227,12 +295,15 @@ def get_model_predictions(model_path: str, batch_of_TS: list[list[float]], num_c
     predicted_classes = model_batch_classify(model_path, batch_of_TS, num_classes) 
     return predicted_classes
 
-async def get_loyalty_alphas_csv(task_id: str, dataset: str, dataset_type: str, model_path: str, model_type: str) -> None:
+async def get_loyalty_alphas_csv(task_id: str, session_id: str, dataset: str, dataset_type: str, model_path: str, model_type: str, is_global: bool) -> None:
     active_tasks[task_id].update({"status": "processing","progress": 20,"message": "Processing..."})
     try:
-        #df, time_dict = score_different_alphas_mp(dataset, datset_type=dataset_type, model_path=model_path)
-        df = await score_different_alphas(task_id, dataset, datset_type=dataset_type, model_path=model_path)
-        df.to_csv(f"results/{dataset}/{model_type}_alpha_complexity_loyalty.csv", index=False)
+        session_path = get_session_path(session_id)
+        results_path = session_path / "results" / dataset
+        results_path.mkdir(parents=True, exist_ok=True)
+        
+        df = await score_different_alphas(task_id, session_id, dataset, dataset_type, model_path, is_global)
+        df.to_csv(results_path / f"{model_type}_alpha_complexity_loyalty.csv", index=False)
         active_tasks[task_id].update({"status": "completed","progress": 100,"message": "Processing completed successfully! You should be able to choose your Dataset in the home page."})
     except Exception as e:
         active_tasks[task_id].update({"status": "error","progress": 0,"message": f"Processing failed: {str(e)}"})
@@ -288,16 +359,22 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         print(f"WebSocket disconnected for task: {task_id}")
 
 @app.post("/upload")
-async def upload_files( model_file: UploadFile = File(...), dataset_file: UploadFile = File(...), dataset_name: str = Form(...)):
+async def upload_files( model_file: UploadFile = File(...), dataset_file: UploadFile = File(...), dataset_name: str = Form(...), session_id: str = Form(...)):
+    print(f"model_file: {model_file.filename}")
+    print(f"dataset_file: {dataset_file.filename}")
+    print(f"dataset_name: {dataset_name}")
+    print(f"session_id: {session_id}")
     task_id = str(uuid.uuid4())
     active_tasks[task_id] = {"status": "starting","progress": 0,"message": "Initializing upload... Do not refresh or quit this page."}
     print("Initializing upload...")
-    data_path = Path(os.path.join("data", dataset_name))
-    model_path = Path(os.path.join("models", dataset_name))
-    results_path = Path(os.path.join("results", dataset_name))
+    
+    session_path = get_session_path(session_id)
+    data_path = session_path / "data" / dataset_name
+    model_path = session_path / "models" / dataset_name
+    results_path = session_path / "results" / dataset_name
     
     if data_path.exists() or model_path.exists():
-        raise HTTPException(status_code=400, detail="Dataset already exists")
+        raise HTTPException(status_code=400, detail="Dataset already exists in this session.")
     if not model_file.filename:
         raise HTTPException(status_code=400, detail="Model file must have a filename")
     if not dataset_file.filename:
@@ -326,8 +403,8 @@ async def upload_files( model_file: UploadFile = File(...), dataset_file: Upload
             shutil.copyfileobj(dataset_file.file, buffer)
 
     print("Starting background task")
-    asyncio.create_task(get_loyalty_alphas_csv(task_id, dataset_name, "TEST_normalized", model_file_path_str, model_type))
-    #asyncio.create_task(test_progress_bar(task_id, dataset_name, "TEST", model_file_path_str, model_type))
+    is_global = dataset_name in ["Chinatown", "ECG200", "ItalyPowerDemand"]
+    asyncio.create_task(get_loyalty_alphas_csv(task_id, session_id, dataset_name, "TEST_normalized", model_file_path_str, model_type, is_global=is_global))
     
     return {"message": "Upload started", "task_id": task_id}
 

@@ -1,6 +1,8 @@
 webPage/src/node_modules
 webPage/package-lock.json
 
+session_data
+
 Resources
 venv
 .venv
