@@ -46,7 +46,8 @@ async def cleanup_old_sessions():
     while True:
         for session_folder in SESSION_ROOT.iterdir():
             if session_folder.is_dir():
-                folder_path = SESSION_ROOT / session_folder
+                #folder_path = SESSION_ROOT / session_folder
+                folder_path = session_folder
                 creation_time = datetime.fromtimestamp(folder_path.stat().st_ctime)
                 if datetime.now() - creation_time > timedelta(hours=24):
                     shutil.rmtree(folder_path)
@@ -307,24 +308,6 @@ async def get_loyalty_alphas_csv(task_id: str, session_id: str, dataset: str, da
         active_tasks[task_id].update({"status": "completed","progress": 100,"message": "Processing completed successfully! You should be able to choose your Dataset in the home page."})
     except Exception as e:
         active_tasks[task_id].update({"status": "error","progress": 0,"message": f"Processing failed: {str(e)}"})
-
-"""
-async def test_progress_bar(task_id: str, dataset: str, dataset_type: str, model_path: str, model_type: str) -> None:
-    active_tasks[task_id].update({"status": "processing", "progress": 20, "message": "Processing..."})
-    
-    for i in range(5):
-        progress = 20 + (i * 15)
-        active_tasks[task_id].update({
-            "status": "processing",
-            "progress": progress,
-            "message": f"Test step {i+1} of 5"
-        })
-        print(f"📝 Test progress {i+1}: {active_tasks[task_id]}")
-        await asyncio.sleep(2)  # Wait 2 seconds between updates
-    
-    
-    active_tasks[task_id].update({"status": "completed", "progress": 100, "message": "Processing completed successfully!"})
-"""
 
 @app.websocket("/ws/progress/{task_id}")
 async def websocket_endpoint(websocket: WebSocket, task_id: str):
