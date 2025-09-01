@@ -120,6 +120,9 @@ async def reciveModel(file: UploadFile, session_id: str = Form(...), dataset_nam
 
 @ app.get('/simplification')
 async def get_simplification(simp_algo: str, time_series: str, alpha: float):
+    if simp_algo == "OS" or simp_algo == "LSF":
+        alpha = 1 - alpha
+
     if alpha < 0:
         time_series_array = convert_time_series_str_list_float(time_series)
         return time_series_array
