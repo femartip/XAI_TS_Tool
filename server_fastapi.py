@@ -141,11 +141,11 @@ async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, in
         alpha = 1 - alpha
 
     if alpha < 0:
-        denormalized_ts_array = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
+        denormalized_ts_array = denormalize_single_time_series(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
         return denormalized_ts_array.tolist()
 
     simplified_time_series = simplify_ts_by_alpha(algo=simp_algo,alpha=alpha,time_series=normalized_time_series)
-    denormalized_time_series = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
+    denormalized_time_series = denormalize_single_time_series(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
     print(f"Denormalized data: {denormalized_time_series}")
     return denormalized_time_series.tolist()
 

@@ -6,13 +6,13 @@ import "chartjs-plugin-dragdata";
 
 
 const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOriginal, updateData, lineColorCurr, lineColorSimp, lineColorOrg }) => {
-  if (!dataSetCurrent){
+  if (!dataSetCurrent) {
     dataSetCurrent = [];
   }
-  if (!dataSetSimp){
+  if (!dataSetSimp) {
     dataSetSimp = [];
   }
-  if (!dataSetOriginal){
+  if (!dataSetOriginal) {
     dataSetOriginal = [];
 
   }
@@ -114,7 +114,7 @@ const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOr
     labels: state.labels,
     datasets: [
       {
-        label: "Interactive",
+        label: "Original",
         data: state.dataSet[0],
         lineTension: 0,
         borderColor: lineColorCurr,
