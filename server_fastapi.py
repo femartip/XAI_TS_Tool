@@ -18,7 +18,7 @@ from datetime import datetime, timedelta
 from simplifications import get_OS_simplification, get_RDP_simplification, get_bottom_up_simplification, get_VW_simplification, get_LSF_simplification
 from Utils.metrics import calculate_mean_loyalty, calculate_kappa_loyalty, calculate_complexity, score_simplicity, calculate_percentage_agreement
 from Utils.load_models import model_batch_classify, load_pytorch_model, batch_classify_pytorch_model # type: ignore
-from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, denormalize_data
+from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, denormalize_single_time_series, normalize_single_time_series
 
 from typing import Any
 
@@ -141,11 +141,11 @@ async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, in
         alpha = 1 - alpha
 
     if alpha < 0:
-        denormalized_ts_array = denormalize_data(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
+        denormalized_ts_array = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
         return denormalized_ts_array.tolist()
 
     simplified_time_series = simplify_ts_by_alpha(algo=simp_algo,alpha=alpha,time_series=normalized_time_series)
-    denormalized_time_series = denormalize_data(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
+    denormalized_time_series = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
     print(f"Denormalized data: {denormalized_time_series}")
     return denormalized_time_series.tolist()
 
@@ -165,8 +165,9 @@ async def get_class(time_series: str = Query(None, description=''), dataset_name
         base_path = get_session_path(session_id)
 
     time_series_array = convert_time_series_str_list_float(time_series)
+    time_series_norm = normalize_single_time_series(dataset_name= dataset_name, data=time_series_array, base_path=base_path)
     class_of_ts = _classify(dataset_name=dataset_name,
-                            time_series=time_series_array,
+                            time_series=time_series_norm,
                             base_path=base_path)
     print(class_of_ts, type(class_of_ts))
     print("Class:",class_of_ts)
@@ -181,7 +182,7 @@ async def get_ts(dataset_name: str = Query(None, description='Name of domain'), 
         base_path = get_session_path(session_id)
     
     time_series = get_time_series(dataset_name=dataset_name,data_type="TEST", instance_nr=index, base_path=base_path).flatten().tolist()
-    #time_series = denormalize_data(dataset_name=dataset_name, data=time_series_norm, base_path=base_path).tolist()
+    #time_series = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=time_series_norm, base_path=base_path).tolist()
     return time_series
 
 @app.get('/getTSNorm')

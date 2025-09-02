@@ -110,7 +110,7 @@ def get_time_series(dataset_name: str, data_type:str, instance_nr: int, base_pat
     all_time_series = load_dataset(dataset_name, data_type=data_type, base_path=base_path)
     return all_time_series[instance_nr]
 
-def denormalize_data(dataset_name: str, data: np.ndarray, base_path: Path = Path(".")) -> np.ndarray:
+def denormalize_single_time_series(dataset_name: str, data: np.ndarray, base_path: Path = Path(".")) -> np.ndarray:
     """
     Denormalize the data.
     :param dataset_name: The name of the dataset.
@@ -124,6 +124,22 @@ def denormalize_data(dataset_name: str, data: np.ndarray, base_path: Path = Path
     offset = normalization_info["offset"]
     scale  = normalization_info["scale"]
     return np.asarray(data, dtype=np.float64) / scale + offset
+
+def normalize_single_time_series(dataset_name: str, data: np.ndarray, base_path: Path = Path(".")) -> np.ndarray:
+    """
+    Normalize a single time series.
+    :param dataset_name: The name of the dataset.
+    :param data: The data to normalize.
+    :param base_path: The base path for session data.
+    :return: The normalized data.
+    """
+    with open(base_path / "data" / dataset_name / "normalization_info.json", "r") as f:
+        normalization_info = json.load(f)
+    
+    offset = normalization_info["offset"]
+    scale = normalization_info["scale"]
+    
+    return (data - offset) * scale
 
 def test():
     data = load_dataset("Chinatown", data_type="VALIDATION")
@@ -140,8 +156,6 @@ def normalize_data(dataset_name: str, data_type: str = "TRAIN", base_path: Path 
     eps = 1e-12 if rng == 0 else 0.0
     scale = 1.0 / (rng + eps) 
     offset = min_over_all
-
-    dataset = (dataset - offset) * scale
 
     info_path = base_path / "data" / dataset_name / f"normalization_info.json"
     info_path.parent.mkdir(parents=True, exist_ok=True)
