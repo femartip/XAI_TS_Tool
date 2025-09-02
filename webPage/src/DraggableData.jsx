@@ -16,8 +16,21 @@ const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOr
     dataSetOriginal = [];
 
   }
-  const rawMax = dataSetOriginal.length > 0 ? Math.max(...dataSetOriginal): 1;
-  const rawMin =dataSetOriginal.length > 0 ? Math.min(...dataSetOriginal): -1;
+  let allData = [];
+  if (dataSetOriginal) {
+    allData = allData.concat(dataSetOriginal);
+  }
+  if (dataSetSimp) {
+    allData = allData.concat(dataSetSimp);
+  }
+
+  let rawMax = 1;
+  let rawMin = -1;
+  if (allData.length > 0) {
+    rawMax = Math.max(...allData);
+    rawMin = Math.min(...allData);
+  }
+
   const niceMax = Math.ceil(rawMax);
   const niceMin = Math.floor(rawMin);
 

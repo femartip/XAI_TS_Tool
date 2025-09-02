@@ -91,7 +91,7 @@ def simplify_ts_by_alpha(algo, alpha, time_series):
         raise ValueError("Unknown algorithm '{}'".format(algo))
 
     selected_simp = simp[0]
-    return selected_simp.line_version
+    return np.array(selected_simp.line_version)
 
 
 

@@ -192,5 +192,4 @@ cython_debug/
 .pypirc
 
 pythonServer/server_venv/
-webPage/public
 webPage/node_modules

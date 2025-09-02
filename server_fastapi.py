@@ -5,7 +5,6 @@ from fastapi.middleware.cors import CORSMiddleware
 #from pythonServer.getConfidence import get_confidence
 from pythonServer.simplification import simplify_ts_by_alpha
 #from pythonServer.generateCF import generate_native_cf, generate_subseq_cf
-from pythonServer.getTimeSeries import get_time_series
 import shutil
 import os
 from pathlib import Path
@@ -19,7 +18,7 @@ from datetime import datetime, timedelta
 from simplifications import get_OS_simplification, get_RDP_simplification, get_bottom_up_simplification, get_VW_simplification, get_LSF_simplification
 from Utils.metrics import calculate_mean_loyalty, calculate_kappa_loyalty, calculate_complexity, score_simplicity, calculate_percentage_agreement
 from Utils.load_models import model_batch_classify, load_pytorch_model, batch_classify_pytorch_model # type: ignore
-from Utils.load_data import load_dataset, load_dataset_labels
+from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, denormalize_data
 
 from typing import Any
 
@@ -74,6 +73,8 @@ def get_session_path(session_id: str) -> Path:
     """
     Returns the path for a given session_id.
     """
+    if not session_id:
+        raise HTTPException(status_code=400, detail="Session IS is required for non-global datasets.")
     return SESSION_ROOT / session_id
 
 def convert_time_series_str_list_float(time_series: str) -> np.ndarray[Any, np.dtype[np.float64]]:
@@ -99,7 +100,10 @@ async def reciveData(file: UploadFile, session_id: str = Form(...), dataset_name
     data_path = session_path / "data" / dataset_name
     data_path.mkdir(parents=True, exist_ok=True)
     
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must have a filename")
     file_path = data_path / file.filename
+    
     with open(file_path, "wb") as f:
         contents = await file.read()
         f.write(contents)
@@ -112,28 +116,38 @@ async def reciveModel(file: UploadFile, session_id: str = Form(...), dataset_nam
     model_path = session_path / "models" / dataset_name
     model_path.mkdir(parents=True, exist_ok=True)
 
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="Uploaded file must have a filename")
+    
     file_path = model_path / file.filename
+    
     with open(file_path, "wb") as f:
         contents = await file.read()
         f.write(contents)
     return {"filename": file.filename}
 
 @ app.get('/simplification')
-async def get_simplification(simp_algo: str, time_series: str, alpha: float):
+async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, instance_nr: int, session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
+    base_path = Path(".")
+    if not is_global:
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Session ID is required for non-global datasets")
+        base_path = get_session_path(session_id)
+    
+    # Get normalized time series
+    normalized_time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", instance_nr=instance_nr, base_path=base_path)
+
     if simp_algo == "OS" or simp_algo == "LSF":
         alpha = 1 - alpha
 
     if alpha < 0:
-        time_series_array = convert_time_series_str_list_float(time_series)
-        return time_series_array
-    """
-    we want to find a counterfactual of the index item to make it positive
-    @return A counterfactual time series. For now we only change one time series
-    """
-    time_series_array = convert_time_series_str_list_float(time_series)
+        denormalized_ts_array = denormalize_data(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
+        return denormalized_ts_array.tolist()
 
-    time_series_array = simplify_ts_by_alpha(algo=simp_algo,alpha=alpha,time_series=time_series_array)
-    return time_series_array
+    simplified_time_series = simplify_ts_by_alpha(algo=simp_algo,alpha=alpha,time_series=normalized_time_series)
+    denormalized_time_series = denormalize_data(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
+    print(f"Denormalized data: {denormalized_time_series}")
+    return denormalized_time_series.tolist()
 
 @ app.get('/confidence')
 async def confidence(time_series: str = Query(None, description=''), dataset_name: str = Query(None, description='')):
@@ -160,8 +174,18 @@ async def get_class(time_series: str = Query(None, description=''), dataset_name
     return class_of_ts
 
 
-@ app.get('/getTS')
+@app.get('/getTS')
 async def get_ts(dataset_name: str = Query(None, description='Name of domain'), index: int = Query(None, description='Index of entry in train data'), session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
+    base_path = Path(".")
+    if not is_global:
+        base_path = get_session_path(session_id)
+    
+    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST", instance_nr=index, base_path=base_path).flatten().tolist()
+    #time_series = denormalize_data(dataset_name=dataset_name, data=time_series_norm, base_path=base_path).tolist()
+    return time_series
+
+@app.get('/getTSNorm')
+async def get_ts_norm(dataset_name: str = Query(None, description='Name of domain'), index: int = Query(None, description='Index of entry in train data'), session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
     base_path = Path(".")
     if not is_global:
         base_path = get_session_path(session_id)
@@ -393,4 +417,3 @@ async def upload_files( model_file: UploadFile = File(...), dataset_file: Upload
     asyncio.create_task(get_loyalty_alphas_csv(task_id, session_id, dataset_name, "TEST_normalized", model_file_path_str, model_type, is_global=is_global))
     
     return {"message": "Upload started", "task_id": task_id}
-

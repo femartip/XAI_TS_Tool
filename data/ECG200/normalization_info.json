@@ -1,1 +1,5 @@
-{"max_over_all": 4.1991449, "min_over_all": -2.6171746}
+{
+  "offset": -3.0144511,
+  "scale": 0.1396255221156774,
+  "data_type": "TEST"
+}

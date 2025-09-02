@@ -2,6 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn import preprocessing
 from pathlib import Path
+import json
 
 """
 This code has been extracted from: 
@@ -109,6 +110,21 @@ def get_time_series(dataset_name: str, data_type:str, instance_nr: int, base_pat
     all_time_series = load_dataset(dataset_name, data_type=data_type, base_path=base_path)
     return all_time_series[instance_nr]
 
+def denormalize_data(dataset_name: str, data: np.ndarray, base_path: Path = Path(".")) -> np.ndarray:
+    """
+    Denormalize the data.
+    :param dataset_name: The name of the dataset.
+    :param data: The data to denormalize.
+    :param base_path: The base path for session data.
+    :return: The denormalized data.
+    """
+    with open(base_path / "data" / dataset_name / "normalization_info.json", "r") as f:
+        normalization_info = json.load(f)
+    
+    offset = normalization_info["offset"]
+    scale  = normalization_info["scale"]
+    return np.asarray(data, dtype=np.float64) / scale + offset
+
 def test():
     data = load_dataset("Chinatown", data_type="VALIDATION")
     print(data.shape)
@@ -117,10 +133,21 @@ def test():
 def normalize_data(dataset_name: str, data_type: str = "TRAIN", base_path: Path = Path(".")):
     dataset = load_dataset(dataset_name, data_type, base_path=base_path)
     
-    max_over_all = np.max(dataset)
-    min_over_all = np.min(dataset)
+    max_over_all = float(np.max(dataset))
+    min_over_all = float(np.min(dataset))
     
-    dataset = (dataset - min_over_all) / (max_over_all - min_over_all + 1e-8)
+    rng = max_over_all - min_over_all
+    eps = 1e-12 if rng == 0 else 0.0
+    scale = 1.0 / (rng + eps) 
+    offset = min_over_all
+
+    dataset = (dataset - offset) * scale
+
+    info_path = base_path / "data" / dataset_name / f"normalization_info.json"
+    info_path.parent.mkdir(parents=True, exist_ok=True)
+    with open(info_path, "w") as f:
+        json.dump({"offset": offset, "scale": scale, "data_type": data_type}, f, indent=2)
+
     file_path_name = base_path / "data" / dataset_name / f"{dataset_name}_{data_type}_normalized.npy"
     labels = load_raw_dataset_labels(dataset_name, data_type, base_path=base_path)
     dataset = np.hstack((labels.reshape(-1, 1), dataset))
@@ -128,4 +155,4 @@ def normalize_data(dataset_name: str, data_type: str = "TRAIN", base_path: Path 
     np.save(file_path_name, dataset)
 
 if __name__ == "__main__":
-    test()
+    normalize_data("ECG200", "TEST")

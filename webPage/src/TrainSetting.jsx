@@ -101,16 +101,20 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
     const [dataSetSimp, setDataSetSimp] = useState(null)
     const [lineColorSimp, setLineColorSimp] = useState("rgba(159,159,171,0.25)");
 
-    const getSimpData = (dataSetCurr,simp_mode, alpha, dataset_name) => {
-        if (!dataSetCurr || !simp_mode) {
+    const getSimpData = (simp_mode, alpha, dataset_name, instance_nr) => {
+        if (alpha === "" || isNaN(parseFloat(alpha))) {
             return;
         }
+        const global_datasets = ["Chinatown", "ECG200", "ItalyPowerDemand"];
+        const is_global = global_datasets.includes(dataset_name);
         axios.get(make_full_url('simplification'), {
             params: {
-                time_series: JSON.stringify(dataSetCurr),// Convert dataSet to a JSON string
                 simp_algo: simp_mode,
                 alpha: alpha,
-                dataset_name: dataset_name
+                dataset_name: dataset_name,
+                instance_nr: instance_nr,
+                is_global: is_global,
+                session_id: sessionId
             }
         })
             .then((res) => {
@@ -126,7 +130,7 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
                 console.error('Error:', error);
             });
     };
-    useEffect(() => { getSimpData(dataSetCurr,simp_mode, alphaValue, datasetName); }, [dataSetCurr, simp_mode, alphaValue, datasetName]);
+    useEffect(() => { getSimpData(simpMethod, alphaValue, datasetName, instanceNumber); }, [simpMethod, alphaValue, datasetName, instanceNumber]);
     useEffect(() => { updateColor(dataSetSimp, setLineColorSimp, datasetName) }, [dataSetSimp, datasetName]);
 
 
@@ -179,4 +183,3 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
         </div>
     );
 };
-
