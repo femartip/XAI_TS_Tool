@@ -166,7 +166,7 @@ async def get_ts(dataset_name: str = Query(None, description='Name of domain'), 
     if not is_global:
         base_path = get_session_path(session_id)
     
-    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", index=index, base_path=base_path).flatten().tolist()
+    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", instance_nr=index, base_path=base_path).flatten().tolist()
     return time_series
 
 @app.get("/datasets")

@@ -86,7 +86,7 @@ export default () => {
 
                         <div className="control-card">
                             <h3>Instance Number</h3>
-                            <input type="number" defaultValue={instanceNumber} onChange={(event) => setInstanceNumberFunc(event.target.value)} />
+                            <input type="number" defaultValue={instanceNumber} onChange={(event) => setInstanceNumberFunc(event.target.value)} min="0" />
                         </div>
 
                         <div className="control-card control-card--method">
