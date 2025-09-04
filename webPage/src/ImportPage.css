@@ -180,6 +180,83 @@
     animation: pulse 1s infinite;
 }
 
+/* Field titles with inline help */
+.field-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.help {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background: #eef2ff;
+    color: #334155;
+    font-weight: 700;
+    cursor: default;
+    position: relative;
+    user-select: none;
+}
+
+.help .tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    top: 28px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: #111827;
+    color: #fff;
+    padding: 8px 10px;
+    border-radius: 6px;
+    font-size: 0.85rem;
+    width: 260px;
+    max-width: 80vw;
+    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    z-index: 10;
+    transition: opacity 0.15s ease;
+}
+
+.help:hover .tooltip,
+.help:focus .tooltip {
+    visibility: visible;
+    opacity: 1;
+}
+
+/* Transform params section */
+.transform-section {
+    background: white;
+    padding: 25px;
+    border-radius: 15px;
+    color: #333;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    max-width: 600px;
+    margin: 0 auto 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+}
+
+@media (max-width: 700px) {
+    .transform-section {
+        grid-template-columns: 1fr;
+    }
+}
+
+.transform-field h3 {
+    margin-bottom: 10px;
+}
+
+.transform-title {
+    grid-column: 1 / -1;
+    margin: 0 0 5px 0;
+    font-size: 1.3rem;
+}
+
 
 .upload-btn:disabled {
     background: #ccc;

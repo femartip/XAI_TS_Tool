@@ -5,6 +5,8 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
     const [modelFile, setModelFile] = useState(null);
     const [datasetFile, setDatasetFile] = useState(null);
     const [datasetName, setDatasetName] = useState('');
+    const [scale, setScale] = useState('');
+    const [offset, setOffset] = useState('');
     const [isUploading, setIsUploading] = useState(false);
     const [progress, setProgress] = useState(0);
     const [statusMessage, setStatusMessage] = useState('');
@@ -53,7 +55,7 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
     };
 
     const handleSubmit = async () => {
-        if (modelFile && datasetFile && datasetName.trim()) {
+        if (modelFile && datasetFile && datasetName.trim() && scale !== '' && offset !== '') {
             setIsUploading(true);
             setProgress(0);
             setStatusMessage('Starting upload...');
@@ -65,6 +67,8 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
             formData.append('dataset_file', datasetFile);
             formData.append('dataset_name', datasetName);
             formData.append('session_id', sessionId);
+            formData.append('scale', String(scale));
+            formData.append('offset', String(offset));
 
             try {
                 const response = await fetch('http://localhost:8000/upload', {
@@ -102,7 +106,13 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
 
             <div className="upload-grid">
                 <div className="upload-card">
-                    <h3>🤖 Model File</h3>
+                    <h3 className="field-title">
+                        <span>🤖 Model File</span>
+                        <span className="help" tabIndex={0}>
+                            ?
+                            <span className="tooltip">Upload a model file (.pth or .pkl) trained on normalized data different from the one to be uploaded.</span>
+                        </span>
+                    </h3>
                     <input
                         type="file"
                         accept=".pth,.pkl"
@@ -114,7 +124,13 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
                 </div>
 
                 <div className="upload-card">
-                    <h3>📊 Dataset File</h3>
+                    <h3 className="field-title">
+                        <span>📊 Dataset File</span>
+                        <span className="help" tabIndex={0}>
+                            ?
+                            <span className="tooltip">Upload your dataset as a .npy array. Data is expected to be normalized and different from the one used for training. First column should be labels, remaining columns the time series.</span>
+                        </span>
+                    </h3>
                     <input
                         type="file"
                         accept=".npy"
@@ -127,7 +143,13 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
             </div>
 
             <div className="dataset-name-section">
-                <h3>📝 Dataset Name</h3>
+                <h3 className="field-title">
+                    <span>📝 Dataset Name</span>
+                    <span className="help" tabIndex={0}>
+                        ?
+                        <span className="tooltip">A unique name for this dataset within your session.</span>
+                    </span>
+                </h3>
                 <input
                     type="text"
                     value={datasetName}
@@ -136,6 +158,44 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
                     className="dataset-name-input"
                 />
             </div>
+
+            <div className="transform-section">
+                <h3 className="transform-title">📐Normalization Parameters</h3>
+                <div className="transform-field">
+                    <h3 className="field-title">
+                        <span>Scale</span>
+                        <span className="help" tabIndex={0}>
+                            ?
+                            <span className="tooltip">MinMax scaling factor used during normalization (typically 1 / (max - min)).</span>
+                        </span>
+                    </h3>
+                    <input
+                        type="number"
+                        step="any"
+                        value={scale}
+                        onChange={(e) => setScale(e.target.value)}
+                        placeholder="e.g., 0.12345"
+                        className="dataset-name-input"
+                    />
+                </div>
+                <div className="transform-field">
+                    <h3 className="field-title">
+                        <span>Offset</span>
+                        <span className="help" tabIndex={0}>
+                            ?
+                            <span className="tooltip">Minimum value (offset) used during normalization. Original x = normalized/scale + offset.</span>
+                        </span>
+                    </h3>
+                    <input
+                        type="number"
+                        step="any"
+                        value={offset}
+                        onChange={(e) => setOffset(e.target.value)}
+                        placeholder="e.g., -3.0144"
+                        className="dataset-name-input"
+                    />
+                </div>
+            </div>
             {isUploading && (
                 <div className="progress-section">
                     <div className="progress-bar">
@@ -143,7 +203,7 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
                             className="progress-fill"
                             style={{ width: `${progress}%` }}
                         >
-                           <span className="progress-text">{`${Math.round(progress)}%`}</span>
+                            <span className="progress-text">{`${Math.round(progress)}%`}</span>
                         </div>
                     </div>
                     <p className="progress-message">{statusMessage}</p>
@@ -160,7 +220,7 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
             <button
                 className="upload-btn"
                 onClick={handleSubmit}
-                disabled={!modelFile || !datasetFile || !datasetName.trim() || isUploading}
+                disabled={!modelFile || !datasetFile || !datasetName.trim() || scale === '' || offset === '' || isUploading}
             >
                 {isUploading ? 'Processing...' : '🚀 Upload Files'}
             </button>

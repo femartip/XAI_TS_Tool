@@ -370,7 +370,14 @@ async def websocket_endpoint(websocket: WebSocket, task_id: str):
         print(f"WebSocket disconnected for task: {task_id}")
 
 @app.post("/upload")
-async def upload_files( model_file: UploadFile = File(...), dataset_file: UploadFile = File(...), dataset_name: str = Form(...), session_id: str = Form(...)):
+async def upload_files( 
+    model_file: UploadFile = File(...), 
+    dataset_file: UploadFile = File(...), 
+    dataset_name: str = Form(...), 
+    session_id: str = Form(...),
+    scale: float = Form(...),
+    offset: float = Form(...)
+):
     print(f"model_file: {model_file.filename}")
     print(f"dataset_file: {dataset_file.filename}")
     print(f"dataset_name: {dataset_name}")
@@ -412,6 +419,11 @@ async def upload_files( model_file: UploadFile = File(...), dataset_file: Upload
     dataset_file_path = data_path.joinpath(dataset_file_name)
     with open(dataset_file_path, "wb") as buffer:
             shutil.copyfileobj(dataset_file.file, buffer)
+
+    # Save normalization parameters for MinMax scaling so frontend and server can (de)normalize
+    norm_info = {"offset": float(offset), "scale": float(scale), "data_type": "TEST"}
+    with open(data_path / "normalization_info.json", "w") as f:
+        json.dump(norm_info, f, indent=2)
 
     print("Starting background task")
     is_global = dataset_name in ["Chinatown", "ECG200", "ItalyPowerDemand"]
