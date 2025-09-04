@@ -181,8 +181,8 @@ async def get_ts(dataset_name: str = Query(None, description='Name of domain'), 
     if not is_global:
         base_path = get_session_path(session_id)
     
-    time_series = get_time_series(dataset_name=dataset_name,data_type="TEST", instance_nr=index, base_path=base_path).flatten().tolist()
-    #time_series = denormalize_single_time_series, normalize_single_time_series(dataset_name=dataset_name, data=time_series_norm, base_path=base_path).tolist()
+    time_series_norm = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", instance_nr=index, base_path=base_path).flatten().tolist()
+    time_series = denormalize_single_time_series(dataset_name=dataset_name, data=time_series_norm, base_path=base_path).tolist()
     return time_series
 
 @app.get('/getTSNorm')

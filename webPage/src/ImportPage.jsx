@@ -166,7 +166,7 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
                         <span>Scale</span>
                         <span className="help" tabIndex={0}>
                             ?
-                            <span className="tooltip">MinMax scaling factor used during normalization (typically 1 / (max - min)).</span>
+                            <span className="tooltip">MinMax scaling factor used during normalization (typically 1 / (max - min)). For no transformation Scale = 1.0</span>
                         </span>
                     </h3>
                     <input
@@ -183,7 +183,7 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
                         <span>Offset</span>
                         <span className="help" tabIndex={0}>
                             ?
-                            <span className="tooltip">Minimum value (offset) used during normalization. Original x = normalized/scale + offset.</span>
+                            <span className="tooltip">Minimum value (offset) used during normalization. Original x = normalized/scale + offset. For no transformation Offset = 0.0</span>
                         </span>
                     </h3>
                     <input

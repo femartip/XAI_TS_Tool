@@ -17,14 +17,19 @@ def load_pytorch_model(model_path, num_classes: int):
         MODELS[model_path] = pytorch_model
     return MODELS[model_path]
 
-def classify_pytorch_model(model, time_series):
-    time_series = np.array(time_series).reshape(1, -1) # Reshape to (1, input_shape)
+def classify_pytorch_model(model, time_series, num_classes: int):
+    time_series = np.array(time_series).reshape(1, -1)  # Reshape to (1, input_shape)
     time_series = np.array([time_series])  # (batchsize=1,(inputshape))
     with torch.no_grad():
         time_series_tensor = torch.tensor(time_series, dtype=torch.float32)
-        predictions = model(time_series_tensor).numpy()
-    class_pred = round(predictions[0][0])  # Extract batch index 0
-    return class_pred
+        logits = model(time_series_tensor)
+        if num_classes == 2:
+            probs = torch.sigmoid(logits.squeeze())
+            pred = int((probs > 0.5).cpu().numpy())
+        else:
+            probs = torch.softmax(logits, dim=1)
+            pred = int(torch.argmax(probs, dim=1).cpu().numpy()[0])
+    return pred
 
 def classify_sklearn_model(model_path, time_series):
     model = joblib.load(open(model_path, 'rb'))
@@ -37,7 +42,7 @@ def model_classify(model_path: str, time_series: list[float], num_classes: int) 
     assert os.path.exists(model_path), f"Model path {model_path} does not exist"
     if model_path.endswith(".pth"):
         model = load_pytorch_model(model_path, num_classes)
-        return classify_pytorch_model(model, time_series)
+        return classify_pytorch_model(model, time_series, num_classes)
     elif model_path.endswith(".pkl"):
         return classify_sklearn_model(model_path, time_series)
     else:
