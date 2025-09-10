@@ -321,14 +321,6 @@ async def get_param_metrics(
             "loyalty": float(row["Kappa Loyalty"]),
             "complexity": float(row["Complexity"])
         }
-        # Include optional columns if present
-        if "Percentage Agreement" in df.columns:
-            ret["percentage_agreement"] = float(row["Percentage Agreement"])
-        if "Num Segments" in df.columns:
-            try:
-                ret["num_segments"] = float(row["Num Segments"])  # may be float in CSV
-            except Exception:
-                pass
         return ret
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compute metrics: {e}")
