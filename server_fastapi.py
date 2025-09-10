@@ -21,6 +21,7 @@ from Utils.load_models import model_batch_classify, load_pytorch_model, batch_cl
 from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, denormalize_single_time_series, normalize_single_time_series
 
 from typing import Any
+from typing import Optional
 
 app = FastAPI()
 
@@ -77,6 +78,97 @@ def get_session_path(session_id: str) -> Path:
         raise HTTPException(status_code=400, detail="Session IS is required for non-global datasets.")
     return SESSION_ROOT / session_id
 
+def _model_type_from_models_dir(models_dir: Path) -> Optional[str]:
+    """
+    Determine model type string (e.g., 'cnn', 'decision-tree', 'knn', 'logistic-regression')
+    by inspecting files under the given models directory.
+    Prefers '.pth' (cnn) if present; otherwise uses first '.pkl'.
+    Returns None if no model files found.
+    """
+    try:
+        pth = next(models_dir.glob("*.pth"), None)
+        if pth is not None:
+            # Examples: 'cnn_norm.pth' -> 'cnn'
+            stem = pth.stem  # e.g., cnn_norm
+            return stem.split("_")[0]
+        pkl = next(models_dir.glob("*.pkl"), None)
+        if pkl is not None:
+            # Examples: 'decision-tree_norm.pkl' -> 'decision-tree'
+            stem = pkl.stem
+            return stem.split("_")[0]
+    except Exception:
+        pass
+    return None
+
+def _resolve_results_csv(base_path: Path, dataset_name: str, is_global: bool, session_id: Optional[str]) -> Path:
+    """
+    Resolve the alpha/complexity/loyalty CSV for the dataset and active model.
+    - Global datasets: choose CSV based on model type inferred from models dir.
+    - Session datasets: choose the only '*_alpha_complexity_loyalty.csv' in results folder.
+    Raises HTTPException if not found.
+    """
+    if is_global:
+        results_dir = Path("results") / dataset_name
+        models_dir = Path("models") / dataset_name
+        model_type = _model_type_from_models_dir(models_dir)
+        if model_type is None:
+            raise HTTPException(status_code=400, detail=f"No model found for dataset {dataset_name} to resolve CSV.")
+        csv_path = results_dir / f"{model_type}_alpha_complexity_loyalty.csv"
+        if not csv_path.exists():
+            raise HTTPException(status_code=404, detail=f"CSV not found: {csv_path}")
+        return csv_path
+    else:
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Session ID is required for non-global datasets")
+        results_dir = get_session_path(session_id) / "results" / dataset_name
+        if not results_dir.exists():
+            raise HTTPException(status_code=404, detail=f"Results folder not found: {results_dir}")
+        candidates = list(results_dir.glob("*_alpha_complexity_loyalty.csv"))
+        if not candidates:
+            raise HTTPException(status_code=404, detail=f"No CSV found in {results_dir} (expected '*_alpha_complexity_loyalty.csv').")
+        # Choose the newest file if multiple
+        csv_path = max(candidates, key=lambda p: p.stat().st_mtime)
+        return csv_path
+
+def _algo_key(simp_algo: str) -> str:
+    a = (simp_algo or "").strip().upper()
+    if a == "BOTTOM-UP":
+        return "BU"
+    return a
+
+def _nearest_alpha_from_csv(csv_path: Path, algo_key: str, target_value: float, selection_type: str) -> float:
+    """
+    Given a CSV of [Type, Alpha, Percentage Agreement, Kappa Loyalty, Complexity, ...],
+    find the row for the given algo where the selected metric is closest to target_value,
+    and return the corresponding Alpha.
+    selection_type: 'loyalty' uses 'Kappa Loyalty'; 'complexity' uses 'Complexity'.
+    """
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read CSV {csv_path}: {e}")
+
+    if "Type" not in df.columns or "Alpha" not in df.columns:
+        raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing required columns.")
+
+    algo_df = df[df["Type"].str.upper() == algo_key]
+    if algo_df.empty:
+        raise HTTPException(status_code=404, detail=f"No rows for algorithm '{algo_key}' in {csv_path}")
+
+    metric_col = "Kappa Loyalty" if selection_type == "loyalty" else "Complexity"
+    if metric_col not in algo_df.columns:
+        raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing '{metric_col}' column.")
+
+    # Compute nearest by absolute difference
+    try:
+        diffs = (algo_df[metric_col] - float(target_value)).abs()
+        idx = diffs.idxmin()
+        alpha_val = float(df.loc[idx, "Alpha"])  # use original df to avoid chained indexing issues
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute nearest alpha: {e}")
+
+    return alpha_val
+
 def convert_time_series_str_list_float(time_series: str) -> np.ndarray[Any, np.dtype[np.float64]]:
     if time_series is None:
         return np.array([], dtype=float)
@@ -127,7 +219,15 @@ async def reciveModel(file: UploadFile, session_id: str = Form(...), dataset_nam
     return {"filename": file.filename}
 
 @ app.get('/simplification')
-async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, instance_nr: int, session_id: str = Query(None, description='Session ID'), is_global: bool = Query(False, description='Is the dataset global')):
+async def get_simplification(
+    simp_algo: str,
+    alpha: float,
+    dataset_name: str,
+    instance_nr: int,
+    session_id: str = Query(None, description='Session ID'),
+    is_global: bool = Query(False, description='Is the dataset global'),
+    selection_type: str = Query("alpha", description='alpha|loyalty|complexity')
+):
     base_path = Path(".")
     if not is_global:
         if not session_id:
@@ -136,6 +236,19 @@ async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, in
     
     # Get normalized time series
     normalized_time_series = get_time_series(dataset_name=dataset_name,data_type="TEST_normalized", instance_nr=instance_nr, base_path=base_path)
+
+    # If loyalty/complexity was selected, map to nearest alpha from CSV
+    sel = (selection_type or "alpha").strip().lower()
+    if sel in ("loyalty", "complexity"):
+        csv_path = _resolve_results_csv(base_path=base_path, dataset_name=dataset_name, is_global=is_global, session_id=session_id)
+        algo = _algo_key(simp_algo)
+        mapped_alpha = _nearest_alpha_from_csv(csv_path=csv_path, algo_key=algo, target_value=alpha, selection_type=sel)
+        # Compensate for inversion applied below for OS/LSF so that underlying algorithm
+        # receives the alpha value exactly as in the CSV.
+        if simp_algo in ("OS", "LSF"):
+            alpha = 1.0 - mapped_alpha
+        else:
+            alpha = mapped_alpha
 
     if simp_algo == "OS" or simp_algo == "LSF":
         alpha = 1 - alpha
@@ -148,6 +261,77 @@ async def get_simplification(simp_algo: str, alpha: float, dataset_name: str, in
     denormalized_time_series = denormalize_single_time_series(dataset_name=dataset_name, data=simplified_time_series, base_path=base_path)
     print(f"Denormalized data: {denormalized_time_series}")
     return denormalized_time_series.tolist()
+
+@app.get('/param_metrics')
+async def get_param_metrics(
+    simp_algo: str,
+    dataset_name: str,
+    session_id: str = Query(None, description='Session ID'),
+    is_global: bool = Query(False, description='Is the dataset global'),
+    selection_type: str = Query("alpha", description='alpha|loyalty|complexity'),
+    value: float = Query(..., description='Selected value for the chosen selection_type')
+):
+    """
+    Return the alpha, loyalty (kappa), and complexity corresponding to the selected parameter/value.
+    - If selection_type == 'alpha': use the provided value as alpha and find nearest row in CSV for metrics.
+    - If selection_type in {'loyalty','complexity'}: map the value to nearest alpha in CSV, then return metrics for that alpha.
+    """
+    base_path = Path(".")
+    if not is_global:
+        if not session_id:
+            raise HTTPException(status_code=400, detail="Session ID is required for non-global datasets")
+        base_path = get_session_path(session_id)
+
+    # Resolve CSV and algorithm key
+    csv_path = _resolve_results_csv(base_path=base_path, dataset_name=dataset_name, is_global=is_global, session_id=session_id)
+    algo = _algo_key(simp_algo)
+
+    # Determine alpha as used in CSV metrics
+    sel = (selection_type or "alpha").strip().lower()
+    try:
+        if sel == 'alpha':
+            alpha_val = float(value)
+        elif sel in ('loyalty', 'complexity'):
+            alpha_val = _nearest_alpha_from_csv(csv_path=csv_path, algo_key=algo, target_value=float(value), selection_type=sel)
+        else:
+            raise HTTPException(status_code=400, detail=f"Invalid selection_type: {selection_type}")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse input value: {e}")
+
+    # Load CSV and find nearest row by alpha
+    try:
+        df = pd.read_csv(csv_path)
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read CSV {csv_path}: {e}")
+
+    for col in ("Type", "Alpha", "Kappa Loyalty", "Complexity"):
+        if col not in df.columns:
+            raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing required column '{col}'.")
+
+    algo_df = df[df["Type"].str.upper() == algo]
+    if algo_df.empty:
+        raise HTTPException(status_code=404, detail=f"No rows for algorithm '{algo}' in {csv_path}")
+
+    try:
+        diffs = (algo_df["Alpha"] - float(alpha_val)).abs()
+        idx = diffs.idxmin()
+        row = df.loc[idx]
+        ret = {
+            "alpha": float(row["Alpha"]),
+            "loyalty": float(row["Kappa Loyalty"]),
+            "complexity": float(row["Complexity"])
+        }
+        # Include optional columns if present
+        if "Percentage Agreement" in df.columns:
+            ret["percentage_agreement"] = float(row["Percentage Agreement"])
+        if "Num Segments" in df.columns:
+            try:
+                ret["num_segments"] = float(row["Num Segments"])  # may be float in CSV
+            except Exception:
+                pass
+        return ret
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to compute metrics: {e}")
 
 @ app.get('/confidence')
 async def confidence(time_series: str = Query(None, description=''), dataset_name: str = Query(None, description='')):

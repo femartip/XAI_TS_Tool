@@ -11,6 +11,9 @@ export default () => {
     const [instanceNumber, setInstanceNumber] = useState(0);
     const [simpMethod, setSimpMethod] = useState("RDP");
     const [alphaValue, setAlphaValue] = useState(0);
+    const [loyaltyValue, setLoyaltyValue] = useState(0);
+    const [complexityValue, setComplexityValue] = useState(0);
+    const [paramMode, setParamMode] = useState('alpha'); // 'alpha' | 'loyalty' | 'complexity'
     const [currentPage, setCurrentPage] = useState('home');
     const [sessionId, setSessionId] = useState(null);
 
@@ -61,9 +64,43 @@ export default () => {
         setSimpMethod(name);
     }
 
-    const setAlphaValueFunc = (number) => {
-        setAlphaValue(number);
-    }
+    const setAlphaValueFunc = (number) => { setAlphaValue(number); };
+    const setLoyaltyValueFunc = (number) => { setLoyaltyValue(number); };
+    const setComplexityValueFunc = (number) => { setComplexityValue(number); };
+
+    // Keep non-selected boxes in sync automatically using backend metrics
+    useEffect(() => {
+        if (!datasetName || !sessionId) return;
+        const selectedVal = paramMode === 'alpha' ? alphaValue : (paramMode === 'loyalty' ? loyaltyValue : complexityValue);
+        if (selectedVal === "" || isNaN(parseFloat(selectedVal))) return;
+
+        const doFetch = () => {
+            const params = {
+                simp_algo: simpMethod,
+                dataset_name: datasetName,
+                session_id: sessionId,
+                is_global: ["Chinatown", "ECG200", "ItalyPowerDemand"].includes(datasetName),
+                selection_type: paramMode,
+                value: selectedVal
+            };
+            axios.get('http://localhost:8000/param_metrics', { params })
+                .then((res) => {
+                    const { alpha, loyalty, complexity } = res.data || {};
+                    // Only update NON-selected fields to avoid fighting user typing
+                    if (paramMode !== 'alpha' && typeof alpha === 'number') setAlphaValue(alpha);
+                    if (paramMode !== 'loyalty' && typeof loyalty === 'number') setLoyaltyValue(loyalty);
+                    if (paramMode !== 'complexity' && typeof complexity === 'number') setComplexityValue(complexity);
+                })
+                .catch((err) => {
+                    console.error('Failed to fetch param metrics:', err);
+                });
+        };
+
+        // Debounce a bit to avoid overwriting while typing
+        const t = setTimeout(doFetch, 250);
+        return () => clearTimeout(t);
+        // Trigger whenever user changes selection or value, or when dataset/method change
+    }, [paramMode, alphaValue, loyaltyValue, complexityValue, datasetName, simpMethod, sessionId]);
 
     return (
         <div className="App">
@@ -101,21 +138,93 @@ export default () => {
                         </div>
 
                         <div className="control-card">
-                            <h3>Alpha Value</h3>
-                            <input
-                                type="number"
-                                defaultValue={alphaValue}
-                                onChange={(event) => setAlphaValueFunc(event.target.value)}
-                                step="0.01"
-                                min="0"
-                                max="1"
-                            />
+                            <h3>Simplification Parameters</h3>
+                            <div className="param-grid">
+                                <div className="param-box">
+                                    <div className="param-title">
+                                        <span>Alpha</span>
+                                        <span className="help" tabIndex={0}>i
+                                            <span className="tooltip">Algorithm parameter [0-1]. Higher alpha == less segments.</span>
+                                        </span>
+                                    </div>
+                                    <label className="param-select">
+                                        <input
+                                            type="radio"
+                                            name="paramMode"
+                                            value="alpha"
+                                            checked={paramMode === 'alpha'}
+                                            onChange={() => setParamMode('alpha')}
+                                        /> Select
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={alphaValue}
+                                        onChange={(e) => paramMode === 'alpha' ? setAlphaValueFunc(e.target.value) : null}
+                                        step="0.01"
+                                        min="0"
+                                        max="1"
+                                        disabled={paramMode !== 'alpha'}
+                                    />
+                                </div>
+                                <div className="param-box">
+                                    <div className="param-title">
+                                        <span>Loyalty (κ)</span>
+                                        <span className="help" tabIndex={0}>i
+                                            <span className="tooltip">Target classification loyalty metric measured by Cohen's kappa [0-1].</span>
+                                        </span>
+                                    </div>
+                                    <label className="param-select">
+                                        <input
+                                            type="radio"
+                                            name="paramMode"
+                                            value="loyalty"
+                                            checked={paramMode === 'loyalty'}
+                                            onChange={() => setParamMode('loyalty')}
+                                        /> Select
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={loyaltyValue}
+                                        onChange={(e) => paramMode === 'loyalty' ? setLoyaltyValueFunc(e.target.value) : null}
+                                        step="0.01"
+                                        min="0"
+                                        max="1"
+                                        disabled={paramMode !== 'loyalty'}
+                                    />
+                                </div>
+                                <div className="param-box">
+                                    <div className="param-title">
+                                        <span>Complexity</span>
+                                        <span className="help" tabIndex={0}>i
+                                            <span className="tooltip">Target model complexity (number of segments of simplification / total segments) [0-1].</span>
+                                        </span>
+                                    </div>
+                                    <label className="param-select">
+                                        <input
+                                            type="radio"
+                                            name="paramMode"
+                                            value="complexity"
+                                            checked={paramMode === 'complexity'}
+                                            onChange={() => setParamMode('complexity')}
+                                        /> Select
+                                    </label>
+                                    <input
+                                        type="number"
+                                        value={complexityValue}
+                                        onChange={(e) => paramMode === 'complexity' ? setComplexityValueFunc(e.target.value) : null}
+                                        step="0.01"
+                                        min="0"
+                                        max="1"
+                                        disabled={paramMode !== 'complexity'}
+                                    />
+                                </div>
+                            </div>
                         </div>
                     </div>
 
                     <div className="InteractiveTool">
                         {datasetName &&
-                            <TrainSetting sessionId={sessionId} datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={alphaValue} />}
+                            <TrainSetting sessionId={sessionId} datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={paramMode === 'alpha' ? alphaValue : (paramMode === 'loyalty' ? loyaltyValue : complexityValue)} selectionType={paramMode} />}
                     </div>
                 </div>
             ) : (
@@ -129,5 +238,3 @@ export default () => {
         </div>
     );
 };
-
-

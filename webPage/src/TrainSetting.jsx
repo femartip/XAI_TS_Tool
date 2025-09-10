@@ -4,7 +4,7 @@ import axios from 'axios';
 import BasicExample from "./MyProgressBar";
 
 
-export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMethod, alphaValue }) => {
+export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMethod, alphaValue, selectionType }) => {
 
     const addr = "localhost"
     const port = "8000"
@@ -114,7 +114,8 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
                 dataset_name: dataset_name,
                 instance_nr: instance_nr,
                 is_global: is_global,
-                session_id: sessionId
+                session_id: sessionId,
+                selection_type: selectionType || 'alpha'
             }
         })
             .then((res) => {
@@ -130,7 +131,7 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
                 console.error('Error:', error);
             });
     };
-    useEffect(() => { getSimpData(simpMethod, alphaValue, datasetName, instanceNumber); }, [simpMethod, alphaValue, datasetName, instanceNumber]);
+    useEffect(() => { getSimpData(simpMethod, alphaValue, datasetName, instanceNumber); }, [simpMethod, alphaValue, datasetName, instanceNumber, selectionType]);
     useEffect(() => { updateColor(dataSetSimp, setLineColorSimp, datasetName) }, [dataSetSimp, datasetName]);
 
 
