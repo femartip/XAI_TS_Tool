@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_HTTP_BASE } from './config';
 
 export function ModelUploadComponent({ setModelNameFunc }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -26,7 +27,7 @@ export function ModelUploadComponent({ setModelNameFunc }) {
 
     try {
       // Replace with your API endpoint
-      const response = await axios.post('http://localhost:8000/reciveModel', formData);
+      const response = await axios.post(`${API_HTTP_BASE}/reciveModel`, formData);
       console.log('File uploaded successfully:', response.data);
       setModelNameFunc(file.name)
 

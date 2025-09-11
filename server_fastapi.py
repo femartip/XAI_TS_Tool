@@ -23,16 +23,31 @@ from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, 
 from typing import Any
 from typing import Optional
 
-app = FastAPI()
+from contextlib import asynccontextmanager
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup logic
+    asyncio.create_task(cleanup_old_sessions())
+    yield
+    # (Optional) Shutdown logic
+
+app = FastAPI(lifespan=lifespan)
 
 # Where do we accept calls from
 origins = [
-    "",
+    "http://localhost:1337",
+    "http://127.0.0.1:1337",
+    "http://158.42.185.235:1337",
+    "http://158.42.185.235:8000",
+    "http://localhost:3000",
+    "http://falco.dsic.upv.es:1337",
+    "https://brigthaavardstun.github.io",
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -52,10 +67,6 @@ async def cleanup_old_sessions():
                 if datetime.now() - creation_time > timedelta(hours=24):
                     shutil.rmtree(folder_path)
         await asyncio.sleep(3600)  # Check every hour
-
-@app.on_event("startup")
-async def startup_event():
-    asyncio.create_task(cleanup_old_sessions())
 
 @app.get("/session")
 async def get_session():
@@ -163,10 +174,10 @@ def _nearest_alpha_from_csv(csv_path: Path, algo_key: str, target_value: float, 
     try:
         diffs = (algo_df[metric_col] - float(target_value)).abs()
         idx = diffs.idxmin()
-        alpha_val = float(df.loc[idx, "Alpha"])  # use original df to avoid chained indexing issues
+        alpha_val = float(df.loc[idx, "Alpha"])  #type: ignore
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to compute nearest alpha: {e}")
-
+    
     return alpha_val
 
 def convert_time_series_str_list_float(time_series: str) -> np.ndarray[Any, np.dtype[np.float64]]:
@@ -245,15 +256,17 @@ async def get_simplification(
         mapped_alpha = _nearest_alpha_from_csv(csv_path=csv_path, algo_key=algo, target_value=alpha, selection_type=sel)
         # Compensate for inversion applied below for OS/LSF so that underlying algorithm
         # receives the alpha value exactly as in the CSV.
-        if simp_algo in ("OS", "LSF"):
-            alpha = 1.0 - mapped_alpha
-        else:
+        if simp_algo in ["OS", "LSF"]:
             alpha = mapped_alpha
+        else:
+            alpha = 1-mapped_alpha
 
-    if simp_algo == "OS" or simp_algo == "LSF":
+    if simp_algo in ["OS", "LSF"]:
+        alpha = alpha
+    else:
         alpha = 1 - alpha
 
-    if alpha < 0:
+    if alpha == 1:
         denormalized_ts_array = denormalize_single_time_series(dataset_name=dataset_name, data=normalized_time_series, base_path=base_path)
         return denormalized_ts_array.tolist()
 
@@ -317,9 +330,9 @@ async def get_param_metrics(
         idx = diffs.idxmin()
         row = df.loc[idx]
         ret = {
-            "alpha": float(row["Alpha"]),
-            "loyalty": float(row["Kappa Loyalty"]),
-            "complexity": float(row["Complexity"])
+            "alpha": float(row["Alpha"]),   #type: ignore
+            "loyalty": float(row["Kappa Loyalty"]), #type: ignore
+            "complexity": float(row["Complexity"]) #type: ignore
         }
         return ret
     except Exception as e:

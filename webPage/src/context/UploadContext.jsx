@@ -1,4 +1,5 @@
 import { createContext, useContext, useReducer, useEffect, useRef } from 'react';
+import { WS_BASE } from '../config';
 
 
 /*
@@ -79,7 +80,7 @@ export const UploadProvider = ({ children }) => {
         activeUploads.forEach(upload => {
             if (!websocketRefs.current[upload.taskId]) {
                 console.log('🔗 Connecting WebSocket for:', upload.taskId);
-                const ws = new WebSocket(`ws://localhost:8000/ws/progress/${upload.taskId}`);
+                const ws = new WebSocket(`${WS_BASE}/ws/progress/${upload.taskId}`);
 
                 ws.onopen = () => {
                     console.log('✅ WebSocket connected for:', upload.taskId);

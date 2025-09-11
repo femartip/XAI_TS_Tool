@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './ImportPage.css';
+import { API_HTTP_BASE, WS_BASE } from './config';
 
 const ImportPage = ({ sessionId, onUploadComplete }) => {
     const [modelFile, setModelFile] = useState(null);
@@ -16,7 +17,8 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
 
     useEffect(() => {
         if (taskId && isUploading) {
-            const ws = new WebSocket(`ws://localhost:8000/ws/progress/${taskId}`);
+            //const ws = new WebSocket(`ws://localhost:8000/ws/progress/${taskId}`);
+            const ws = new WebSocket(`${WS_BASE}/ws/progress/${taskId}`);
             ws.onmessage = (event) => {
                 const data = JSON.parse(event.data);
                 setProgress(data.progress);
@@ -71,7 +73,8 @@ const ImportPage = ({ sessionId, onUploadComplete }) => {
             formData.append('offset', String(offset));
 
             try {
-                const response = await fetch('http://localhost:8000/upload', {
+                //const response = await fetch('http://localhost:8000/upload', {
+                const response = await fetch(`${API_HTTP_BASE}/upload`, {
                     method: 'POST',
                     body: formData,
                 });

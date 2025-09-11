@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { API_HTTP_BASE } from './config';
 
 export function DatasetUploadComponent({ setDatasetNameFunc }) {
   const [selectedFile, setSelectedFile] = useState(null);
@@ -25,7 +26,7 @@ export function DatasetUploadComponent({ setDatasetNameFunc }) {
 
     try {
       // Replace with your API endpoint
-      const response = await axios.post('http://localhost:8000/reciveDataset', formData);
+      const response = await axios.post(`${API_HTTP_BASE}/reciveDataset`, formData);
       console.log('File uploaded successfully:', response.data);
       setDatasetNameFunc(file.name)
 

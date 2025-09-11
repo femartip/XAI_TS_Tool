@@ -1,6 +1,8 @@
 webPage/src/node_modules
 webPage/package-lock.json
 
+.env*
+
 session_data
 
 Resources

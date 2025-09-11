@@ -2,16 +2,12 @@ import React, { useEffect, useState } from 'react';
 import DraggableGraph from './DraggableData';
 import axios from 'axios';
 import BasicExample from "./MyProgressBar";
+import { API_HTTP_BASE } from './config';
 
 
 export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMethod, alphaValue, selectionType }) => {
 
-    const addr = "localhost"
-    const port = "8000"
-    const url_and_port = 'http://' + addr + ':' + port + '/'
-    const make_full_url = (endpoint) => {
-        return url_and_port + endpoint
-    };
+    const make_full_url = (endpoint) => `${API_HTTP_BASE}/${endpoint}`;
 
     const simp_mode = simpMethod
     const color_class_map = {
@@ -94,7 +90,7 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
     // Movable data
     const [dataSetCurr, setDataSetCurr] = useState(null);
     const [lineColorCurr, setLineColorCurr] = useState("rgba(159,159,171,0.25)");
-    useEffect(() => { updateColor(dataSetCurr, setLineColorCurr,datasetName); }, [dataSetCurr, datasetName]);
+    useEffect(() => { updateColor(dataSetCurr, setLineColorCurr, datasetName); }, [dataSetCurr, datasetName]);
     useEffect(() => { updateData(dataSetOriginal, setDataSetCurr); }, [dataSetOriginal]); // If change original, update moveable also
 
     // Simplification data
@@ -179,8 +175,8 @@ export const TrainSetting = ({ sessionId, datasetName, instanceNumber, simpMetho
                 lineColorCurr={lineColorCurr} lineColorOrg={lineColorOrg} lineColorSimp={lineColorSimp}
             />
             {(button_show) ?
-            <button className={"button"} onClick={reset} >RESET TO PROTOTYPE</button> : 
-            <div/>}
+                <button className={"button"} onClick={reset} >RESET TO PROTOTYPE</button> :
+                <div />}
         </div>
     );
 };

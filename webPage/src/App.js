@@ -4,6 +4,7 @@ import "./HomePage.css";
 import { TrainSetting } from "./TrainSetting";
 import ImportPage from "./ImportPage";
 import axios from 'axios';
+import { API_HTTP_BASE } from './config';
 
 export default () => {
     const [datasets, setDatasets] = useState([]);
@@ -20,7 +21,8 @@ export default () => {
     const fetchDatasets = async () => {
         if (!sessionId) return;
         try {
-            const response = await axios.get(`http://localhost:8000/datasets?session_id=${sessionId}`);
+            //const response = await axios.get(`http://localhost:8000/datasets?session_id=${sessionId}`);
+            const response = await axios.get(`${API_HTTP_BASE}/datasets`, { params: { session_id: sessionId } });
             setDatasets(response.data);
             if (response.data.length > 0) {
                 setDatasetName(response.data[0]);
@@ -37,7 +39,7 @@ export default () => {
                 if (storedSessionId) {
                     setSessionId(storedSessionId);
                 } else {
-                    const response = await axios.get('http://localhost:8000/session');
+                    const response = await axios.get(`${API_HTTP_BASE}/session`);
                     const newSessionId = response.data.session_id;
                     localStorage.setItem('sessionId', newSessionId);
                     setSessionId(newSessionId);
@@ -83,7 +85,7 @@ export default () => {
                 selection_type: paramMode,
                 value: selectedVal
             };
-            axios.get('http://localhost:8000/param_metrics', { params })
+            axios.get(`${API_HTTP_BASE}/param_metrics`, { params })
                 .then((res) => {
                     const { alpha, loyalty, complexity } = res.data || {};
                     // Only update NON-selected fields to avoid fighting user typing
@@ -144,7 +146,7 @@ export default () => {
                                     <div className="param-title">
                                         <span>Alpha</span>
                                         <span className="help" tabIndex={0}>i
-                                            <span className="tooltip">Algorithm parameter [0-1]. Higher alpha == less segments.</span>
+                                            <span className="tooltip">Algorithm parameter [0-1]. Lower alpha == less segments.</span>
                                         </span>
                                     </div>
                                     <label className="param-select">
