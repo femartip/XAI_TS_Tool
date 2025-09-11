@@ -250,6 +250,9 @@ async def get_simplification(
 
     # If loyalty/complexity was selected, map to nearest alpha from CSV
     sel = (selection_type or "alpha").strip().lower()
+    # For RDP/VW/BU: if UI alpha is exactly 0, treat it as 0.01 to avoid degenerate behavior
+    if sel == "alpha" and _algo_key(simp_algo) in ("RDP", "VW", "BU") and float(alpha) <= 0.0:
+        alpha = 0.01
     if sel in ("loyalty", "complexity"):
         csv_path = _resolve_results_csv(base_path=base_path, dataset_name=dataset_name, is_global=is_global, session_id=session_id)
         algo = _algo_key(simp_algo)
@@ -301,10 +304,24 @@ async def get_param_metrics(
 
     # Determine alpha as used in CSV metrics
     sel = (selection_type or "alpha").strip().lower()
+    # For RDP/VW/BU: if UI alpha is exactly 0, treat it as 0.01 before converting to CSV scale
+    if sel == 'alpha' and algo in ("RDP", "VW", "BU"):
+        try:
+            if float(value) <= 0.0:
+                value = 0.01
+        except Exception:
+            pass
     try:
         if sel == 'alpha':
-            alpha_val = float(value)
+            # UI uses normalized alpha where 1=original, 0=single segment for all algos.
+            # CSV stores original algorithm alpha. Convert UI alpha to CSV alpha here.
+            ui_alpha = float(value)
+            if algo in ("OS", "LSF"):
+                alpha_val = ui_alpha
+            else:
+                alpha_val = 1.0 - ui_alpha
         elif sel in ('loyalty', 'complexity'):
+            # When selecting by metric, find nearest original CSV alpha for this algo.
             alpha_val = _nearest_alpha_from_csv(csv_path=csv_path, algo_key=algo, target_value=float(value), selection_type=sel)
         else:
             raise HTTPException(status_code=400, detail=f"Invalid selection_type: {selection_type}")
