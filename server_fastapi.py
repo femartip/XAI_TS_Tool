@@ -303,8 +303,15 @@ async def get_param_metrics(
     sel = (selection_type or "alpha").strip().lower()
     try:
         if sel == 'alpha':
-            alpha_val = float(value)
+            # UI uses normalized alpha where 1=original, 0=single segment for all algos.
+            # CSV stores original algorithm alpha. Convert UI alpha to CSV alpha here.
+            ui_alpha = float(value)
+            if algo in ("OS", "LSF"):
+                alpha_val = ui_alpha
+            else:
+                alpha_val = 1.0 - ui_alpha
         elif sel in ('loyalty', 'complexity'):
+            # When selecting by metric, find nearest original CSV alpha for this algo.
             alpha_val = _nearest_alpha_from_csv(csv_path=csv_path, algo_key=algo, target_value=float(value), selection_type=sel)
         else:
             raise HTTPException(status_code=400, detail=f"Invalid selection_type: {selection_type}")
