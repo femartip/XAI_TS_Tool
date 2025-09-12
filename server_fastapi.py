@@ -2,6 +2,8 @@ import numpy as np
 from fastapi import FastAPI, Query, UploadFile, File, Form, HTTPException, WebSocket
 from pythonServer.classifyTimeSeries import _classify
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 #from pythonServer.getConfidence import get_confidence
 from pythonServer.simplification import simplify_ts_by_alpha
 #from pythonServer.generateCF import generate_native_cf, generate_subseq_cf
@@ -47,6 +49,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve frontend build under /Interactive and redirect root to it
+frontend_dir = Path(__file__).parent / "webPage" / "build"
+if frontend_dir.exists():
+    app.mount("/Interactive", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
 
 # --- Session Management ---
 SESSION_ROOT = Path("session_data")
@@ -453,7 +460,7 @@ async def get_datasets(session_id: str = Query(None, description='Session ID')):
 
 @ app.get("/")
 async def welcome():
-    return "Welcom home", 200
+    return RedirectResponse(url="/Interactive/")
 
 
 """
