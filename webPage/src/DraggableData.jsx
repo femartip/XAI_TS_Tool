@@ -86,7 +86,7 @@ const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOr
       },
       legend: {
         display: true,
-
+        labels: { fontSize: 20, fontStyle: "bold", padding: 16 }
       },
       dragData: true,
       dragOptions: {
@@ -114,7 +114,7 @@ const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOr
     labels: state.labels,
     datasets: [
       {
-        label: "Original",
+        label: "Original Class Label",
         data: state.dataSet[0],
         lineTension: 0,
         borderColor: lineColorCurr,
@@ -132,7 +132,7 @@ const DraggableGraph = ({ dataSetCurrent, setDataCurrent, dataSetSimp, dataSetOr
 
 
       {
-        label: "Simplification",
+        label: "Simplification Class Label",
         data: state.dataSet[1],
         lineTension: 0,
         borderColor: lineColorSimp,
