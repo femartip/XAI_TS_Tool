@@ -5,6 +5,7 @@ import { TrainSetting } from "./TrainSetting";
 import ImportPage from "./ImportPage";
 import axios from 'axios';
 import { API_HTTP_BASE } from './config';
+import AboutPage from "./AboutPage";
 
 export default () => {
     const [datasets, setDatasets] = useState([]);
@@ -111,6 +112,9 @@ export default () => {
                     <h1>Interactive XAI Tool</h1>
                     <button className="button-nav" onClick={() => setCurrentPage('import')}>
                         Go to Import Page
+                    </button>
+                    <button className="button-accent" onClick={() => setCurrentPage('about')} style={{ marginLeft: '10px' }}>
+                        Learn about the Tool
                     </button>
 
                     <div className="control-grid">
@@ -229,13 +233,15 @@ export default () => {
                             <TrainSetting sessionId={sessionId} datasetName={datasetName} instanceNumber={instanceNumber} simpMethod={simpMethod} alphaValue={paramMode === 'alpha' ? alphaValue : (paramMode === 'loyalty' ? loyaltyValue : complexityValue)} selectionType={paramMode} />}
                     </div>
                 </div>
-            ) : (
+            ) : currentPage === 'import' ? (
                 <div>
                     <button className="button-nav" onClick={() => setCurrentPage('home')} style={{ margin: '10px' }}>
                         Back to Home
                     </button>
                     <ImportPage sessionId={sessionId} onUploadComplete={fetchDatasets} />
                 </div>
+            ) : (
+                <AboutPage onBack={() => setCurrentPage('home')} />
             )}
         </div>
     );

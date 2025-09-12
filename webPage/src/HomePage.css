@@ -53,10 +53,7 @@
     .control-grid {
         /* 4 explicit tracks; last is Parameters */
         grid-template-columns:
-            minmax(200px, 1fr)
-            minmax(200px, 1fr)
-            minmax(260px, 1.1fr)
-            minmax(520px, 1.8fr);
+            minmax(200px, 1fr) minmax(200px, 1fr) minmax(260px, 1.1fr) minmax(520px, 1.8fr);
     }
 }
 
@@ -127,7 +124,7 @@
     font-size: 0.85rem;
     width: 260px;
     max-width: 80vw;
-    box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
     z-index: 10;
     transition: opacity 0.15s ease;
 }
@@ -137,8 +134,6 @@
     visibility: visible;
     opacity: 1;
 }
-
-
 
 .button-nav {
     background: #ffffff;
@@ -156,4 +151,48 @@
 .button-nav:hover {
     background: #f0f0f0;
     transform: translateY(-2px);
+}
+
+.button-accent {
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: #ffffff;
+    border: none;
+    box-shadow: 0 8px 20px rgba(79, 70, 229, 0.35);
+    padding: 12px 22px;
+    font-size: 1rem;
+    border-radius: 28px;
+    cursor: pointer;
+    transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+}
+
+.button-accent:hover {
+    transform: translateY(-2px);
+    filter: brightness(1.05);
+    box-shadow: 0 10px 24px rgba(79, 70, 229, 0.45);
+}
+
+/* --- About Page --- */
+.about-page {
+    padding: 30px 20px;
+    max-width: 960px;
+    margin: 0 auto;
+    color: #333;
+    text-align: left;
+}
+
+.about-page h1 {
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+.about-section {
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    padding: 16px 18px;
+    margin-bottom: 16px;
+}
+
+.about-section h2 {
+    margin-top: 0;
 }
