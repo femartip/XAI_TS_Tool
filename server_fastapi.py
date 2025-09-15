@@ -2,6 +2,8 @@ import numpy as np
 from fastapi import FastAPI, Query, UploadFile, File, Form, HTTPException, WebSocket
 from pythonServer.classifyTimeSeries import _classify
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import RedirectResponse
 #from pythonServer.getConfidence import get_confidence
 from pythonServer.simplification import simplify_ts_by_alpha
 #from pythonServer.generateCF import generate_native_cf, generate_subseq_cf
@@ -47,6 +49,20 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Serve frontend build under /Interactive
+# - Mount /Interactive/static without HTML fallback (prevents wrong MIME on 404)
+# - Mount /Interactive with HTML fallback for client-side routing
+frontend_dir = Path(__file__).parent / "webPage" / "build"
+if frontend_dir.exists():
+    static_dir = frontend_dir / "static"
+    if static_dir.exists():
+        app.mount("/Interactive/static", StaticFiles(directory=str(static_dir), html=False), name="frontend-static")
+    app.mount("/Interactive", StaticFiles(directory=str(frontend_dir), html=True), name="frontend")
+
+@app.get("/")
+async def root_redirect():
+    return RedirectResponse(url="/Interactive/")
 
 # --- Session Management ---
 SESSION_ROOT = Path("session_data")
