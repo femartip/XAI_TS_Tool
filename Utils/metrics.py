@@ -51,12 +51,13 @@ def calculate_complexity(batch_simplified_ts: list[SegmentedTS])->float:
     complexity = sum(scores) / len(scores) if len(scores) > 0 else 0.0
     return complexity
 
-def auc(df: pd.DataFrame, metric:str="Kappa Loyalty", show_fig:bool=False) -> tuple[dict[str, float], dict[str,tuple[list, list]]]:
+def auc(df: pd.DataFrame, metric:str="Percentage Agreement", show_fig:bool=False) -> tuple[dict[str, float], dict[str,tuple[list, list]]]:
     """
-    Calculate the Area Under the Curve of the Complexity vs Loyalty curve for each simplification algorithm.
-    This is used to compare the performance of the different simplification algorithms.
+    Calculate the Area Under the Curve of the Complexity vs Loyalty curve for each
+    simplification algorithm. Uses the provided metric column for "Loyalty".
     """
-    assert metric != "Kappa Loyalty" or metric != "Mean Loyalty", "Metric must be either Kappa Loyalty or Mean Loyalty"
+    # Accept common loyalty metrics; will normalize Percentage Agreement to [0,1]
+    assert metric in ("Percentage Agreement", "Mean Loyalty", "Kappa Loyalty"), "Metric must be Percentage Agreement, Mean Loyalty, or Kappa Loyalty"
 
     algorithms = df["Type"].unique()
     all_auc = {}
@@ -64,6 +65,9 @@ def auc(df: pd.DataFrame, metric:str="Kappa Loyalty", show_fig:bool=False) -> tu
     for algorithm in algorithms:
         complexity = df["Complexity"].copy().where(df["Type"] == algorithm).dropna().to_list()
         loyalty = df[metric].copy().where(df["Type"] == algorithm).dropna().to_list()
+        # Normalize Percentage Agreement from [0,100] to [0,1] for AUC/knee computations
+        if metric == "Percentage Agreement":
+            loyalty = [float(x) / 100.0 for x in loyalty]
 
         sort_id = sorted(range(len(complexity)), key=lambda x: complexity[x])
         complexity = [complexity[x] for x in sort_id]

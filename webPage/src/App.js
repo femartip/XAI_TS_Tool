@@ -174,9 +174,9 @@ export default () => {
                                 </div>
                                 <div className="param-box">
                                     <div className="param-title">
-                                        <span>Loyalty (κ)</span>
+                                        <span>Loyalty</span>
                                         <span className="help" tabIndex={0}>i
-                                            <span className="tooltip">Target classification loyalty metric measured by Cohen's kappa [0-1].</span>
+                                            <span className="tooltip">Target classification loyalty measured by percentage agreement [0–100].</span>
                                         </span>
                                     </div>
                                     <label className="param-select">
@@ -192,9 +192,9 @@ export default () => {
                                         type="number"
                                         value={loyaltyValue}
                                         onChange={(e) => paramMode === 'loyalty' ? setLoyaltyValueFunc(e.target.value) : null}
-                                        step="0.01"
+                                        step="1"
                                         min="0"
-                                        max="1"
+                                        max="100"
                                         disabled={paramMode !== 'loyalty'}
                                     />
                                 </div>

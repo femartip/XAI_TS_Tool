@@ -54,7 +54,7 @@ const AboutPage = ({ onBack }) => {
             <b>Pick a simplification method:</b> choose among the available algorithms.
           </li>
           <li>
-            <b>Choose control mode:</b> set either a target <i>Loyalty</i> (κ) or <i>Complexity</i>. The tool will
+            <b>Choose control mode:</b> set either a target <i>Loyalty</i> or <i>Complexity</i>. The tool will
             compute and display the corresponding simplification.
           </li>
           <li>
@@ -90,4 +90,3 @@ const AboutPage = ({ onBack }) => {
 };
 
 export default AboutPage;
-

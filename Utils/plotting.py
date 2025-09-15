@@ -81,10 +81,28 @@ def plot_csv_complexity_kappa_loyalty(file:str, points:dict={}) -> Figure:
     representation_type = ["o", "x", '+', "|", "s"]
     fig, ax = plt.subplots(figsize=(10, 6))
     
+    # Prefer Percentage Agreement as Loyalty; fallback to Mean Loyalty or Kappa Loyalty
+    loyalty_col = None
+    if "Percentage Agreement" in df.columns:
+        loyalty_col = "Percentage Agreement"
+    elif "Mean Loyalty" in df.columns:
+        loyalty_col = "Mean Loyalty"
+    elif "Kappa Loyalty" in df.columns:
+        loyalty_col = "Kappa Loyalty"
+    else:
+        raise ValueError("CSV missing loyalty column (Percentage Agreement/Mean Loyalty/Kappa Loyalty)")
+
     for i, (name, group) in enumerate(df.groupby("Type")):
-        scatter = ax.scatter(group["Complexity"], group["Kappa Loyalty"], 
-                            label=name, c=group['Alpha'], cmap='viridis', 
-                            marker=representation_type[i])
+        y_vals = group[loyalty_col]
+        # If loyalty is not a percentage, scale to percentage for display
+        if loyalty_col != "Percentage Agreement":
+            try:
+                y_vals = y_vals.astype(float) * 100.0
+            except Exception:
+                y_vals = y_vals
+        scatter = ax.scatter(group["Complexity"], y_vals,
+                             label=name, c=group['Alpha'], cmap='viridis',
+                             marker=representation_type[i])
         
         if points != {}:
             point_x = float(points[name][0])
@@ -93,9 +111,9 @@ def plot_csv_complexity_kappa_loyalty(file:str, points:dict={}) -> Figure:
             #ax.axhline(y=point_y, color='red', linestyle='--', alpha=0.2)
             #ax.axvline(x=point_x, color='red', linestyle='--', alpha=0.2)
     
-    ax.set_title(f"Kappa Loyalty")
+    ax.set_title(f"Loyalty")
     ax.set_xlabel("Complexity\n(Abs. Num. Segments)")
-    ax.set_ylabel("Kappa Loyalty")
+    ax.set_ylabel("Loyalty (%)")
     
     min_complexity = df["Complexity"].min()
     max_complexity = df["Complexity"].max()
@@ -109,16 +127,18 @@ def plot_csv_complexity_kappa_loyalty(file:str, points:dict={}) -> Figure:
         segments_str = ", ".join(map(str, segments))
         x_labels.append(f"{comp:.1f}\n({segments_str})")
 
-    if "Percentage Agreement" in df.columns:
-        loyalty_ticks = np.linspace(df["Kappa Loyalty"].min(), df["Kappa Loyalty"].max(), num_ticks)
-        y_labels = []
-        for loyalty in loyalty_ticks:
-            closest_loyalty = df["Kappa Loyalty"].iloc[(df["Kappa Loyalty"] - loyalty).abs().argsort()[:1]].values[0]
-            segments = sorted(df[df["Kappa Loyalty"] == closest_loyalty]["Percentage Agreement"].unique())
-            segments_str = ", ".join(map(str, segments))
-            y_labels.append(f"{loyalty:.1f}\n({segments_str}%)")
+    # Configure Y ticks in percentage space
+    try:
+        if loyalty_col == "Percentage Agreement":
+            y_min, y_max = df[loyalty_col].min(), df[loyalty_col].max()
+        else:
+            # Scale to percentage for tick calculation
+            y_min, y_max = df[loyalty_col].astype(float).min() * 100.0, df[loyalty_col].astype(float).max() * 100.0
+        loyalty_ticks = np.linspace(y_min, y_max, num_ticks)
         ax.set_yticks(loyalty_ticks)
-        ax.set_yticklabels(y_labels) 
+        ax.set_yticklabels([f"{t:.0f}%" for t in loyalty_ticks])
+    except Exception:
+        pass
     
     ax.set_xticks(complexity_ticks)
     ax.set_xticklabels(x_labels)
