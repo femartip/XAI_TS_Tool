@@ -42,7 +42,6 @@ origins = [
     "http://158.42.185.235:8000",
     "http://localhost:3000",
     "http://falco.dsic.upv.es:1337",
-    "https://brigthaavardstun.github.io",
 ]
 
 app.add_middleware(
