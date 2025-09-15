@@ -164,7 +164,7 @@ def _nearest_alpha_from_csv(csv_path: Path, algo_key: str, target_value: float, 
     find the row for the given algo where the selected metric is closest to target_value,
     and return the corresponding Alpha.
     selection_type:
-      - 'loyalty' uses 'Percentage Agreement' when available, else 'Mean Loyalty', else 'Kappa Loyalty'.
+      - 'loyalty' uses 'Percentage Agreement' ONLY (scale 0–100).
       - 'complexity' uses 'Complexity'.
     """
     try:
@@ -180,12 +180,11 @@ def _nearest_alpha_from_csv(csv_path: Path, algo_key: str, target_value: float, 
         raise HTTPException(status_code=404, detail=f"No rows for algorithm '{algo_key}' in {csv_path}")
 
     if selection_type == "loyalty":
+        # Enforce Percentage Agreement as the loyalty metric
         if "Percentage Agreement" in algo_df.columns:
             metric_col = "Percentage Agreement"
-        elif "Mean Loyalty" in algo_df.columns:
-            metric_col = "Mean Loyalty"
         else:
-            metric_col = "Kappa Loyalty"
+            raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing 'Percentage Agreement' column required for loyalty.")
     else:
         metric_col = "Complexity"
     if metric_col not in algo_df.columns:
@@ -309,7 +308,7 @@ async def get_param_metrics(
     value: float = Query(..., description='Selected value for the chosen selection_type')
 ):
     """
-    Return the alpha, loyalty (percentage agreement), and complexity corresponding to the selected parameter/value.
+    Return the alpha, loyalty (Percentage Agreement, 0–100), and complexity corresponding to the selected parameter/value.
     - If selection_type == 'alpha': use the provided value as alpha and find nearest row in CSV for metrics.
     - If selection_type in {'loyalty','complexity'}: map the value to nearest alpha in CSV, then return metrics for that alpha.
     """
@@ -360,15 +359,10 @@ async def get_param_metrics(
     for col in required_base:
         if col not in df.columns:
             raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing required column '{col}'.")
-    loyalty_col = None
-    if "Percentage Agreement" in df.columns:
-        loyalty_col = "Percentage Agreement"
-    elif "Mean Loyalty" in df.columns:
-        loyalty_col = "Mean Loyalty"
-    elif "Kappa Loyalty" in df.columns:
-        loyalty_col = "Kappa Loyalty"
-    else:
-        raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing loyalty column (Percentage Agreement/Mean Loyalty/Kappa Loyalty).")
+    # Loyalty must be Percentage Agreement for consistency with UI
+    if "Percentage Agreement" not in df.columns:
+        raise HTTPException(status_code=500, detail=f"CSV {csv_path} missing 'Percentage Agreement' column required for loyalty.")
+    loyalty_col = "Percentage Agreement"
 
     algo_df = df[df["Type"].str.upper() == algo]
     if algo_df.empty:
@@ -378,13 +372,9 @@ async def get_param_metrics(
         diffs = (algo_df["Alpha"] - float(alpha_val)).abs()
         idx = diffs.idxmin()
         row = df.loc[idx]
+        
         # If loyalty is not already a percentage, convert to percentage for a consistent UI scale
-        loyalty_val = float(row[loyalty_col])  # type: ignore
-        if loyalty_col != "Percentage Agreement":
-            try:
-                loyalty_val = loyalty_val * 100.0
-            except Exception:
-                pass
+        loyalty_val = float(row[loyalty_col])  # Percentage scale [0-100]
         ret = {
             "alpha": float(row["Alpha"]),   # type: ignore
             "loyalty": loyalty_val,          # percentage scale
