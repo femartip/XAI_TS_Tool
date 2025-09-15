@@ -23,16 +23,7 @@ from Utils.load_data import load_dataset, load_dataset_labels, get_time_series, 
 from typing import Any
 from typing import Optional
 
-from contextlib import asynccontextmanager
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Startup logic
-    asyncio.create_task(cleanup_old_sessions())
-    yield
-    # (Optional) Shutdown logic
-
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Where do we accept calls from
 origins = [
@@ -43,6 +34,11 @@ origins = [
     "http://localhost:3000",
     "http://falco.dsic.upv.es:1337",
 ]
+
+@app.on_event("startup")
+async def startup_event():
+    asyncio.create_task(cleanup_old_sessions())
+
 
 app.add_middleware(
     CORSMiddleware,
